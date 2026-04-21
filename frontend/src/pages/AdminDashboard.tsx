@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Edit2, Plus, Trash2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Layout from '../components/Layout'
-import { usersApi } from '../services/api'
+import { teamsApi, usersApi } from '../services/api'
 import type { User, UserRole } from '../types'
 
 const ROLES: { value: UserRole; label: string }[] = [
@@ -26,11 +26,12 @@ interface UserForm {
   last_name: string
   role: UserRole
   manager_id: string
+  team_id: string
   password: string
 }
 
 const emptyForm: UserForm = {
-  email: '', first_name: '', last_name: '', role: 'user', manager_id: '', password: '',
+  email: '', first_name: '', last_name: '', role: 'user', manager_id: '', team_id: '', password: '',
 }
 
 export default function AdminDashboard() {
@@ -42,6 +43,11 @@ export default function AdminDashboard() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => usersApi.list().then((r) => r.data),
+  })
+
+  const { data: teams = [] } = useQuery({
+    queryKey: ['admin-teams'],
+    queryFn: () => teamsApi.list().then((r) => r.data),
   })
 
   const managers = users.filter((u) => u.role === 'manager' || u.role === 'admin')
@@ -62,6 +68,7 @@ export default function AdminDashboard() {
       last_name: u.last_name,
       role: u.role,
       manager_id: u.manager_id ?? '',
+      team_id: u.team_id ?? '',
       password: '',
     })
     setShowForm(true)
@@ -73,6 +80,7 @@ export default function AdminDashboard() {
       const payload = {
         ...form,
         manager_id: form.manager_id || undefined,
+        team_id: form.team_id || undefined,
       }
       if (editUser) {
         await usersApi.update(editUser.id, payload)
@@ -144,6 +152,15 @@ export default function AdminDashboard() {
                   </select>
                 </div>
               </div>
+              <div>
+                <label className="label">Équipe</label>
+                <select className="input" value={form.team_id} onChange={(e) => set('team_id', e.target.value)}>
+                  <option value="">— Aucune —</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="btn-secondary flex-1">Annuler</button>
                 <button type="submit" className="btn-primary flex-1">{editUser ? 'Enregistrer' : 'Créer'}</button>
@@ -177,6 +194,7 @@ export default function AdminDashboard() {
                   <th className="px-4 py-3 text-left">Nom</th>
                   <th className="px-4 py-3 text-left">Email</th>
                   <th className="px-4 py-3 text-left">Rôle</th>
+                  <th className="px-4 py-3 text-left">Équipe</th>
                   <th className="px-4 py-3 text-left">Manager</th>
                   <th className="px-4 py-3 text-center">Statut</th>
                   <th className="px-4 py-3" />
@@ -185,6 +203,7 @@ export default function AdminDashboard() {
               <tbody className="divide-y divide-gray-100">
                 {users.map((u) => {
                   const mgr = managers.find((m) => m.id === u.manager_id)
+                  const team = teams.find((t) => t.id === u.team_id)
                   return (
                     <tr key={u.id} className={`hover:bg-gray-50 ${!u.is_active ? 'opacity-50' : ''}`}>
                       <td className="px-4 py-3 font-medium">{u.first_name} {u.last_name}</td>
@@ -193,6 +212,9 @@ export default function AdminDashboard() {
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGES[u.role]}`}>
                           {ROLES.find((r) => r.value === u.role)?.label}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {team ? team.name : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-3 text-gray-500">
                         {mgr ? `${mgr.first_name} ${mgr.last_name}` : '—'}

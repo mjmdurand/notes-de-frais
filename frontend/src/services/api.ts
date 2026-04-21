@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Document, ExpenseItem, ExpenseReport, ExpenseReportList, ExpenseReportListAll, Notification, User } from '../types'
+import type { Document, ExpenseItem, ExpenseReport, ExpenseReportList, ExpenseReportListAll, Notification, Team, User } from '../types'
 
 const api = axios.create({ baseURL: '/api' })
 
@@ -69,6 +69,14 @@ export const documentsApi = {
   },
   get: (id: string) => api.get<Document>(`/documents/${id}`),
   getUrl: (id: string) => api.get<{ url: string }>(`/documents/${id}/url`),
+}
+
+export const teamsApi = {
+  list: () => api.get<Team[]>('/teams'),
+  create: (data: { name: string; manager_id?: string }) => api.post<Team>('/teams', data),
+  update: (id: string, data: { name?: string; manager_id?: string | null }) =>
+    api.put<Team>(`/teams/${id}`, data),
+  delete: (id: string) => api.delete(`/teams/${id}`),
 }
 
 export const notificationsApi = {

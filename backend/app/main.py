@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .database import Base, engine, SessionLocal
 from .models import models  # noqa: ensures all models are registered
-from .routers import auth, users, expenses, documents, notifications
+from .routers import auth, users, expenses, documents, notifications, teams
 from .services.auth_service import hash_password
 from .services.storage_service import ensure_bucket_exists
 
@@ -27,6 +27,7 @@ def create_initial_data():
             print(f"Admin account created: {settings.admin_email}")
 
         if settings.demo_accounts:
+            from .models.models import Team
             demo_users = [
                 ("manager@company.com", "manager", "Jean", "Martin", UserRole.MANAGER),
                 ("compta@company.com", "compta", "Sophie", "Dupont", UserRole.ACCOUNTING),
@@ -52,6 +53,16 @@ def create_initial_data():
                 u = db.query(User).filter(User.email == email).first()
                 if u and u.manager_id is None:
                     u.manager_id = manager.id
+
+            # Équipe démo
+            if not db.query(Team).filter(Team.name == "Commercial").first():
+                team = Team(name="Commercial", manager_id=manager.id)
+                db.add(team)
+                db.flush()
+                for email in ["user1@company.com", "user2@company.com"]:
+                    u = db.query(User).filter(User.email == email).first()
+                    if u:
+                        u.team_id = team.id
             db.commit()
 
     finally:
@@ -70,6 +81,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(teams.router)
 app.include_router(expenses.router)
 app.include_router(documents.router)
 app.include_router(notifications.router)

@@ -19,6 +19,35 @@ class LoginRequest(BaseModel):
     password: str
 
 
+# --- Team ---
+class TeamShort(BaseModel):
+    id: UUID
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class TeamCreate(BaseModel):
+    name: str
+    manager_id: Optional[UUID] = None
+
+
+class TeamUpdate(BaseModel):
+    name: Optional[str] = None
+    manager_id: Optional[UUID] = None
+
+
+class TeamOut(BaseModel):
+    id: UUID
+    name: str
+    manager: Optional["UserShort"] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # --- User ---
 class UserBase(BaseModel):
     email: EmailStr
@@ -26,25 +55,30 @@ class UserBase(BaseModel):
     last_name: str
     role: UserRole = UserRole.USER
     manager_id: Optional[UUID] = None
+    team_id: Optional[UUID] = None
 
 
-class UserCreate(UserBase):
-    password: str
+class UserCreate(BaseModel):
+    email: EmailStr
+    first_name: str
+    last_name: str
+    role: UserRole = UserRole.USER
+    team_id: UUID  # obligatoire — manager auto-assigné depuis l'équipe
 
 
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     role: Optional[UserRole] = None
-    manager_id: Optional[UUID] = None
+    team_id: Optional[UUID] = None
     is_active: Optional[bool] = None
-    password: Optional[str] = None
 
 
 class UserOut(UserBase):
     id: UUID
     is_active: bool
     created_at: datetime
+    team: Optional[TeamShort] = None
 
     class Config:
         from_attributes = True
@@ -58,6 +92,9 @@ class UserShort(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+TeamOut.model_rebuild()
 
 
 # --- Document ---
@@ -166,6 +203,7 @@ class ExpenseReportListAll(BaseModel):
     submitted_at: Optional[datetime]
     user: UserShort
     manager: Optional[UserShort] = None
+    team: Optional[TeamShort] = None
     total_ht: Optional[Decimal] = None
     total_tva: Optional[Decimal] = None
     total_ttc: Optional[Decimal] = None

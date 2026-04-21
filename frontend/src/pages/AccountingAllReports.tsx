@@ -23,11 +23,12 @@ function fullName(u: { first_name: string; last_name: string }) {
 
 function exportCsv(reports: ExpenseReportListAll[]) {
   const headers = [
-    'Salarié', 'Équipe (Manager)', 'Titre', 'Créée le', 'Soumise le', 'Statut',
+    'Salarié', 'Équipe', 'Manager', 'Titre', 'Créée le', 'Soumise le', 'Statut',
     'Montant HT (€)', 'TVA (€)', 'Montant TTC (€)',
   ]
   const rows = reports.map((r) => [
     fullName(r.user),
+    r.team ? r.team.name : '—',
     r.manager ? fullName(r.manager) : '—',
     r.title,
     new Date(r.created_at).toLocaleDateString('fr-FR'),
@@ -159,6 +160,7 @@ export default function AccountingAllReports() {
 
   const [dateFrom, setDateFrom] = useState(defaultDateFrom)
   const [dateTo, setDateTo] = useState('')
+  const [teamId, setTeamId] = useState('')
   const [managerId, setManagerId] = useState('')
   const [userId, setUserId] = useState('')
   const [statusFilter, setStatusFilter] = useState<ReportStatus | ''>('approved')
@@ -170,7 +172,15 @@ export default function AccountingAllReports() {
     queryFn: () => expensesApi.listAll().then((r) => r.data),
   })
 
-  // Unique managers and employees derived from data
+  // Unique teams, managers and employees derived from data
+  const teams = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>()
+    for (const r of reports) {
+      if (r.team) map.set(r.team.id, r.team)
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [reports])
+
   const managers = useMemo(() => {
     const map = new Map<string, { id: string; first_name: string; last_name: string }>()
     for (const r of reports) {
@@ -195,12 +205,13 @@ export default function AccountingAllReports() {
         to.setHours(23, 59, 59)
         if (new Date(r.created_at) > to) return false
       }
+      if (teamId && r.team?.id !== teamId) return false
       if (managerId && r.manager?.id !== managerId) return false
       if (userId && r.user.id !== userId) return false
       if (statusFilter && r.status !== statusFilter) return false
       return true
     })
-  }, [reports, dateFrom, dateTo, managerId, userId, statusFilter])
+  }, [reports, dateFrom, dateTo, teamId, managerId, userId, statusFilter])
 
   const stats = useMemo(() => {
     const total = filtered.length
@@ -212,10 +223,11 @@ export default function AccountingAllReports() {
     return { total, approvedCount: approved.length, approvedAmount, pending }
   }, [filtered])
 
-  const hasFilters = dateFrom !== defaultDateFrom || dateTo || managerId || userId || statusFilter !== 'approved'
+  const hasFilters = dateFrom !== defaultDateFrom || dateTo || teamId || managerId || userId || statusFilter !== 'approved'
   const resetFilters = () => {
     setDateFrom(defaultDateFrom)
     setDateTo('')
+    setTeamId('')
     setManagerId('')
     setUserId('')
     setStatusFilter('approved')
@@ -261,8 +273,17 @@ export default function AccountingAllReports() {
               <input className="input w-36" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>
             <div>
-              <label className="label">Équipe / Manager</label>
-              <select className="input w-48" value={managerId} onChange={(e) => setManagerId(e.target.value)}>
+              <label className="label">Équipe</label>
+              <select className="input w-44" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+                <option value="">Toutes</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Manager</label>
+              <select className="input w-44" value={managerId} onChange={(e) => setManagerId(e.target.value)}>
                 <option value="">Tous</option>
                 {managers.map((m) => (
                   <option key={m.id} value={m.id}>{fullName(m)}</option>
@@ -341,6 +362,7 @@ export default function AccountingAllReports() {
                   <tr>
                     <th className="px-4 py-3 text-left">Salarié</th>
                     <th className="px-4 py-3 text-left">Équipe</th>
+                    <th className="px-4 py-3 text-left">Manager</th>
                     <th className="px-4 py-3 text-left">Titre</th>
                     <th className="px-4 py-3 text-left">Créée le</th>
                     <th className="px-4 py-3 text-left">Soumise le</th>
@@ -355,6 +377,9 @@ export default function AccountingAllReports() {
                   {filtered.map((r) => (
                     <tr key={r.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium whitespace-nowrap">{fullName(r.user)}</td>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                        {r.team ? r.team.name : <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                         {r.manager ? fullName(r.manager) : <span className="text-gray-300">—</span>}
                       </td>

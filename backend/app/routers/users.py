@@ -48,6 +48,7 @@ def create_user(data: UserCreate, db: Session = Depends(get_db), current_user: U
         last_name=data.last_name,
         role=data.role,
         manager_id=data.manager_id,
+        team_id=data.team_id,
     )
     db.add(user)
     db.commit()

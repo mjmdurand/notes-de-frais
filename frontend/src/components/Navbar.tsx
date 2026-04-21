@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, BarChart2, CheckSquare, FileText, Home, LogOut, Users } from 'lucide-react'
+import { Bell, BarChart2, CheckSquare, FileText, Home, Layers, LogOut, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { notificationsApi } from '../services/api'
 
@@ -70,8 +70,10 @@ export default function Navbar() {
               {navLink('/accounting', 'Validation', <CheckSquare className="w-4 h-4" />)}
               {navLink('/accounting/reports', 'Tous les rapports', <BarChart2 className="w-4 h-4" />)}
             </>}
-            {user?.role === 'admin' &&
-              navLink('/admin', 'Administration', <Users className="w-4 h-4" />)}
+            {user?.role === 'admin' && <>
+              {navLink('/admin', 'Utilisateurs', <Users className="w-4 h-4" />)}
+              {navLink('/admin/teams', 'Équipes', <Layers className="w-4 h-4" />)}
+            </>}
           </div>
         </div>
 

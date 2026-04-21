@@ -9,7 +9,7 @@ from datetime import datetime
 from ..database import get_db
 from ..models.models import (
     Approval, Document, ExpenseItem, ExpenseReport, Notification,
-    ReportStatus, User, UserRole
+    ReportStatus, Team, User, UserRole
 )
 from ..routers.deps import get_current_user
 from ..schemas.schemas import (
@@ -105,7 +105,10 @@ def list_all_expenses(db: Session = Depends(get_db), current_user: User = Depend
         raise HTTPException(status_code=403, detail="Accès refusé")
     reports = (
         db.query(ExpenseReport)
-        .options(joinedload(ExpenseReport.user).joinedload(User.manager))
+        .options(
+            joinedload(ExpenseReport.user).joinedload(User.manager),
+            joinedload(ExpenseReport.user).joinedload(User.team),
+        )
         .order_by(ExpenseReport.created_at.desc())
         .all()
     )
@@ -113,6 +116,7 @@ def list_all_expenses(db: Session = Depends(get_db), current_user: User = Depend
         _calc_totals_all(r)
         r.item_count = len(r.items)
         r.manager = r.user.manager if r.user else None
+        r.team = r.user.team if r.user else None
     return reports
 
 

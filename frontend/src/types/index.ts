@@ -3,6 +3,18 @@ export type ReportStatus = 'draft' | 'pending_manager' | 'pending_accounting' | 
 export type OcrStatus = 'pending' | 'processing' | 'completed' | 'failed'
 export type ExpenseCategory = 'Déplacement' | 'Restauration' | 'Affranchissement' | 'Hébergement' | 'Autre'
 
+export interface TeamShort {
+  id: string
+  name: string
+}
+
+export interface Team {
+  id: string
+  name: string
+  manager: { id: string; first_name: string; last_name: string; email: string } | null
+  created_at: string
+}
+
 export interface User {
   id: string
   email: string
@@ -10,6 +22,8 @@ export interface User {
   last_name: string
   role: UserRole
   manager_id: string | null
+  team_id: string | null
+  team: TeamShort | null
   is_active: boolean
   created_at: string
 }
@@ -81,6 +95,7 @@ export interface ExpenseReportList {
 
 export interface ExpenseReportListAll extends ExpenseReportList {
   manager: UserShort | null
+  team: TeamShort | null
   total_ht: string | null
   total_tva: string | null
 }

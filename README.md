@@ -14,6 +14,7 @@ Application web de gestion des notes de frais avec workflow d'approbation multi-
 - **Export logiciel comptable** : format FEC (CEGID Loop) et format Sage 100 Comptabilité
 - **Notifications email** à chaque étape du workflow (templates HTML)
 - **Réinitialisation de mot de passe** par email avec lien sécurisé (TTL 1h)
+- **Gestion des équipes** : création d'équipes, affectation d'un manager responsable, assignation des utilisateurs
 - **Rôles** : Utilisateur, Manager, Comptabilité, Admin
 
 ## Stack technique
@@ -201,6 +202,18 @@ MINIO_PUBLIC_BASE_URL=https://ged.mondomaine.fr
 ```
 
 Les URLs présignées des justificatifs pointeront vers ce domaine public.
+
+## Gestion des équipes
+
+Les équipes sont gérées par l'administrateur via le menu **Équipes** (accessible uniquement au rôle admin).
+
+- Chaque équipe a un **nom** et un **manager responsable** optionnel
+- Les utilisateurs sont assignés à une équipe depuis la page **Utilisateurs**
+- La suppression d'une équipe désaffecte automatiquement ses membres (sans les supprimer)
+- La page **Vue d'ensemble** (comptabilité) permet de filtrer les notes par équipe et par manager séparément
+- L'export CSV inclut les colonnes Équipe et Manager
+
+En mode démonstration, une équipe **Commercial** est créée automatiquement avec Jean Martin comme manager et Paul Bernard / Marie Leroy comme membres.
 
 ## Workflow d'approbation
 

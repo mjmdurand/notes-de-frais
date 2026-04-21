@@ -11,6 +11,7 @@ import ManagerDashboard from './pages/ManagerDashboard'
 import AccountingDashboard from './pages/AccountingDashboard'
 import AccountingAllReports from './pages/AccountingAllReports'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminTeams from './pages/AdminTeams'
 
 function HomeRedirect() {
   const { user } = useAuth()
@@ -77,6 +78,14 @@ export default function App() {
         element={
           <ProtectedRoute roles={['admin']}>
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/teams"
+        element={
+          <ProtectedRoute roles={['admin']}>
+            <AdminTeams />
           </ProtectedRoute>
         }
       />

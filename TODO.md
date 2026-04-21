@@ -1,0 +1,9 @@
+- continue
+- a l'écran de login, si echec, afficher un message type "login/mot de passe incorrect" (ne s'affiche pas toujours actuellement)
+- permettre de desactiver/réactiver un user via l'administration (précédemment, l'icone de poubelle désactivait, elle n'est pas assez claire et laisse penser que l'on peut supprimer l'user ce qui risque de poser problème pour les notes de frais qu'il avait déclaré qui ne seraient potentiellement plus accessibles) ; si compte inactif, afficher un message d'erreur au login type "votre compte a été désactivé"
+- pour les reset de mots de passe, demander un mot de passer fort à l'utilisateur et empêcher de réutiliser un ancien mot de passe
+- sur l'ecran des utilisateurs "mail", "manager" ne se mettent pas à jour lorsque que l'on edite
+- une fois les informations requises pour créer un user, page blanche sur http://192.168.71.100:3000/admin et l'user n'est pas crée. 
+- pour les managers, skipper la validation manager et directement envoyer à valider par la comptabilité
+- Feature import users/equipes via un csv
+- en mode démo, créer les equipes "Direction", "Commerciaux", "Informatique", "Comptabilité", "Recouvrement" ; pour chaque équipe créer un manager et 1 user. Attention l'équipe comptabilité ne donne pas les permissions comptabilité, il s'agit de 2 sujets différents (tous les comptables ne valident pas les notes de frais mais doivent pouvoir en déposer)

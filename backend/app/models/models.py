@@ -42,6 +42,27 @@ class OcrStatus(str, PyEnum):
     FAILED = "failed"
 
 
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False, unique=True)
+    manager_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    manager = relationship(
+        "User",
+        foreign_keys=[manager_id],
+        primaryjoin="Team.manager_id == User.id",
+    )
+    members = relationship(
+        "User",
+        back_populates="team",
+        primaryjoin="User.team_id == Team.id",
+        foreign_keys="[User.team_id]",
+    )
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -52,10 +73,17 @@ class User(Base):
     last_name = Column(String(100), nullable=False)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.USER)
     manager_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     manager = relationship("User", remote_side=[id], foreign_keys=[manager_id])
+    team = relationship(
+        "Team",
+        back_populates="members",
+        foreign_keys=[team_id],
+        primaryjoin="User.team_id == Team.id",
+    )
     expense_reports = relationship("ExpenseReport", back_populates="user", foreign_keys="ExpenseReport.user_id")
     notifications = relationship("Notification", back_populates="user")
 
