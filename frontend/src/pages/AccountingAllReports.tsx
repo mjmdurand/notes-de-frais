@@ -50,11 +50,13 @@ function exportCsv(reports: ExpenseReportListAll[]) {
 }
 
 export default function AccountingAllReports() {
-  const [dateFrom, setDateFrom] = useState('')
+  const defaultDateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+  const [dateFrom, setDateFrom] = useState(defaultDateFrom)
   const [dateTo, setDateTo] = useState('')
   const [managerId, setManagerId] = useState('')
   const [userId, setUserId] = useState('')
-  const [statusFilter, setStatusFilter] = useState<ReportStatus | ''>('')
+  const [statusFilter, setStatusFilter] = useState<ReportStatus | ''>('approved')
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['expenses-all'],
@@ -104,13 +106,13 @@ export default function AccountingAllReports() {
     return { total, totalAmount, approvedCount: approved.length, approvedAmount, pending }
   }, [filtered])
 
-  const hasFilters = dateFrom || dateTo || managerId || userId || statusFilter
+  const hasFilters = dateFrom !== defaultDateFrom || dateTo || managerId || userId || statusFilter !== 'approved'
   const resetFilters = () => {
-    setDateFrom('')
+    setDateFrom(defaultDateFrom)
     setDateTo('')
     setManagerId('')
     setUserId('')
-    setStatusFilter('')
+    setStatusFilter('approved')
   }
 
   return (
