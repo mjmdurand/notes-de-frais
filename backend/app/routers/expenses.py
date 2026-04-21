@@ -37,15 +37,12 @@ def _calc_totals_all(report: ExpenseReport):
 
 @router.get("", response_model=List[ExpenseReportList])
 def list_expenses(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role == UserRole.ADMIN:
-        reports = db.query(ExpenseReport).order_by(ExpenseReport.created_at.desc()).all()
-    else:
-        reports = (
-            db.query(ExpenseReport)
-            .filter(ExpenseReport.user_id == current_user.id)
-            .order_by(ExpenseReport.created_at.desc())
-            .all()
-        )
+    reports = (
+        db.query(ExpenseReport)
+        .filter(ExpenseReport.user_id == current_user.id)
+        .order_by(ExpenseReport.created_at.desc())
+        .all()
+    )
 
     result = []
     for r in reports:
