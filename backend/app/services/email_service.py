@@ -1,24 +1,82 @@
 import smtplib
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+import httpx
 
 from ..config import settings
 
 
-def send_email(to: str, subject: str, html_body: str):
+def _build_message(to: str, subject: str, html_body: str) -> MIMEMultipart:
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = settings.smtp_from
     msg["To"] = to
     msg.attach(MIMEText(html_body, "html"))
+    return msg
 
-    try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
-            if settings.smtp_user and settings.smtp_password:
+
+def _send_via_smtp(to: str, subject: str, html_body: str):
+    msg = _build_message(to, subject, html_body)
+    mode = settings.smtp_mode
+
+    if mode == "ssl":
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=ctx) as server:
+            if settings.smtp_user:
                 server.login(settings.smtp_user, settings.smtp_password)
             server.sendmail(settings.smtp_from, to, msg.as_string())
+    else:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+            if mode == "starttls":
+                server.starttls(context=ssl.create_default_context())
+            if settings.smtp_user:
+                server.login(settings.smtp_user, settings.smtp_password)
+            server.sendmail(settings.smtp_from, to, msg.as_string())
+
+
+def _get_oauth2_token() -> str:
+    import msal
+    app = msal.ConfidentialClientApplication(
+        client_id=settings.smtp_oauth_client_id,
+        client_credential=settings.smtp_oauth_client_secret,
+        authority=f"https://login.microsoftonline.com/{settings.smtp_oauth_tenant_id}",
+    )
+    result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+    if "access_token" not in result:
+        raise RuntimeError(f"OAuth2 token error: {result.get('error_description', result)}")
+    return result["access_token"]
+
+
+def _send_via_graph(to: str, subject: str, html_body: str):
+    """Envoie via Microsoft Graph API (permission Mail.Send sur la boîte smtp_from)."""
+    token = _get_oauth2_token()
+    resp = httpx.post(
+        f"https://graph.microsoft.com/v1.0/users/{settings.smtp_from}/sendMail",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={
+            "message": {
+                "subject": subject,
+                "body": {"contentType": "HTML", "content": html_body},
+                "toRecipients": [{"emailAddress": {"address": to}}],
+            },
+            "saveToSentItems": False,
+        },
+        timeout=15,
+    )
+    if resp.status_code not in (200, 202):
+        raise RuntimeError(f"Graph API error {resp.status_code}: {resp.text}")
+
+
+def send_email(to: str, subject: str, html_body: str):
+    try:
+        if settings.smtp_mode == "oauth2":
+            _send_via_graph(to, subject, html_body)
+        else:
+            _send_via_smtp(to, subject, html_body)
     except Exception as e:
-        print(f"Email send failed to {to}: {e}")
+        print(f"[email] Send failed to {to}: {e}")
 
 
 def send_report_submitted(manager_email: str, manager_name: str, user_name: str, report_title: str, report_id: str):

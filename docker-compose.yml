@@ -63,12 +63,23 @@ services:
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
       - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-ndf-documents}
       - MINIO_SECURE=false
-      - SMTP_HOST=mailhog
-      - SMTP_PORT=1025
+      - SMTP_MODE=${SMTP_MODE:-plain}
+      - SMTP_HOST=${SMTP_HOST:-mailhog}
+      - SMTP_PORT=${SMTP_PORT:-1025}
       - SMTP_FROM=${SMTP_FROM:-ndf@company.com}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_OAUTH_TENANT_ID=${SMTP_OAUTH_TENANT_ID:-}
+      - SMTP_OAUTH_CLIENT_ID=${SMTP_OAUTH_CLIENT_ID:-}
+      - SMTP_OAUTH_CLIENT_SECRET=${SMTP_OAUTH_CLIENT_SECRET:-}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production-secret-key}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - MINIO_PUBLIC_BASE_URL=${MINIO_PUBLIC_BASE_URL:-}
+      - DEMO_ACCOUNTS=${DEMO_ACCOUNTS:-true}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@company.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-Admin1234!}
+      - ADMIN_FIRST_NAME=${ADMIN_FIRST_NAME:-Admin}
+      - ADMIN_LAST_NAME=${ADMIN_LAST_NAME:-Système}
     depends_on:
       postgres:
         condition: service_healthy
@@ -96,12 +107,19 @@ services:
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
       - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-ndf-documents}
       - MINIO_SECURE=false
-      - SMTP_HOST=mailhog
-      - SMTP_PORT=1025
+      - SMTP_MODE=${SMTP_MODE:-plain}
+      - SMTP_HOST=${SMTP_HOST:-mailhog}
+      - SMTP_PORT=${SMTP_PORT:-1025}
       - SMTP_FROM=${SMTP_FROM:-ndf@company.com}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_OAUTH_TENANT_ID=${SMTP_OAUTH_TENANT_ID:-}
+      - SMTP_OAUTH_CLIENT_ID=${SMTP_OAUTH_CLIENT_ID:-}
+      - SMTP_OAUTH_CLIENT_SECRET=${SMTP_OAUTH_CLIENT_SECRET:-}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production-secret-key}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - MINIO_PUBLIC_BASE_URL=${MINIO_PUBLIC_BASE_URL:-}
+      - DEMO_ACCOUNTS=${DEMO_ACCOUNTS:-true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -117,6 +135,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
     ports:
       - "3000:80"
     depends_on:

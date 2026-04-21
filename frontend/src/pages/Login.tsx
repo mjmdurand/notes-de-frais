@@ -70,13 +70,15 @@ export default function Login() {
           </div>
         </form>
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-xl text-xs text-gray-500 space-y-1">
-          <p className="font-medium text-gray-600">Comptes de démonstration :</p>
-          <p>Admin : admin@company.com / Admin1234!</p>
-          <p>Manager : manager@company.com / manager</p>
-          <p>Comptabilité : compta@company.com / compta</p>
-          <p>Utilisateur : user1@company.com / user1</p>
-        </div>
+        {import.meta.env.VITE_DEMO_ACCOUNTS === 'true' && (
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl text-xs text-gray-500 space-y-1">
+            <p className="font-medium text-gray-600">Comptes de démonstration :</p>
+            <p>Admin : admin@company.com / Admin1234!</p>
+            <p>Manager : manager@company.com / manager</p>
+            <p>Comptabilité : compta@company.com / compta</p>
+            <p>Utilisateur : user1@company.com / user1</p>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -14,45 +14,45 @@ def create_initial_data():
     try:
         from .models.models import User, UserRole
 
-        if not db.query(User).filter(User.email == "admin@company.com").first():
+        if not db.query(User).filter(User.email == settings.admin_email).first():
             admin = User(
-                email="admin@company.com",
-                hashed_password=hash_password("Admin1234!"),
-                first_name="Admin",
-                last_name="Système",
+                email=settings.admin_email,
+                hashed_password=hash_password(settings.admin_password),
+                first_name=settings.admin_first_name,
+                last_name=settings.admin_last_name,
                 role=UserRole.ADMIN,
             )
             db.add(admin)
+            db.commit()
+            print(f"Admin account created: {settings.admin_email}")
 
-        demo_users = [
-            ("manager@company.com", "manager", "Jean", "Martin", UserRole.MANAGER),
-            ("compta@company.com", "compta", "Sophie", "Dupont", UserRole.ACCOUNTING),
-            ("user1@company.com", "user1", "Paul", "Bernard", UserRole.USER),
-            ("user2@company.com", "user2", "Marie", "Leroy", UserRole.USER),
-        ]
-        created = {}
-        for email, pwd, fn, ln, role in demo_users:
-            existing = db.query(User).filter(User.email == email).first()
-            if not existing:
-                u = User(
-                    email=email,
-                    hashed_password=hash_password(pwd),
-                    first_name=fn,
-                    last_name=ln,
-                    role=role,
-                )
-                db.add(u)
-                db.flush()
-                created[email] = u
+        if settings.demo_accounts:
+            demo_users = [
+                ("manager@company.com", "manager", "Jean", "Martin", UserRole.MANAGER),
+                ("compta@company.com", "compta", "Sophie", "Dupont", UserRole.ACCOUNTING),
+                ("user1@company.com", "user1", "Paul", "Bernard", UserRole.USER),
+                ("user2@company.com", "user2", "Marie", "Leroy", UserRole.USER),
+            ]
+            for email, pwd, fn, ln, role in demo_users:
+                if not db.query(User).filter(User.email == email).first():
+                    u = User(
+                        email=email,
+                        hashed_password=hash_password(pwd),
+                        first_name=fn,
+                        last_name=ln,
+                        role=role,
+                    )
+                    db.add(u)
+                    db.flush()
 
-        db.commit()
+            db.commit()
 
-        manager = db.query(User).filter(User.email == "manager@company.com").first()
-        for email in ["user1@company.com", "user2@company.com"]:
-            u = db.query(User).filter(User.email == email).first()
-            if u and u.manager_id is None:
-                u.manager_id = manager.id
-        db.commit()
+            manager = db.query(User).filter(User.email == "manager@company.com").first()
+            for email in ["user1@company.com", "user2@company.com"]:
+                u = db.query(User).filter(User.email == email).first()
+                if u and u.manager_id is None:
+                    u.manager_id = manager.id
+            db.commit()
 
     finally:
         db.close()

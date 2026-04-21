@@ -8,6 +8,8 @@ Application web de gestion des notes de frais avec workflow d'approbation multi-
 - **Workflow d'approbation** : Employé → Manager → Comptabilité
 - **Upload de justificatifs** (PDF, image) avec stockage MinIO
 - **Saisie manuelle** : montant TTC + taux de TVA → calcul automatique HT/TVA
+- **Correction comptable** : la comptabilité peut corriger les montants et la date pendant la validation
+- **Vue d'ensemble comptabilité** : tableau de bord avec filtres (période, équipe, salarié, statut) et export CSV
 - **Notifications email** à chaque étape du workflow
 - **Réinitialisation de mot de passe** par email
 - **Rôles** : Utilisateur, Manager, Comptabilité, Admin
@@ -38,7 +40,7 @@ cd ndf
 
 # Copier et adapter la configuration
 cp env.example .env
-# Éditez .env si besoin (JWT_SECRET en production !)
+# Éditez .env (JWT_SECRET et credentials admin obligatoires en production)
 
 # Lancer tous les services
 docker compose up -d --build
@@ -46,7 +48,23 @@ docker compose up -d --build
 
 L'application est disponible sur **http://localhost:3000**.
 
+La base de données et le bucket MinIO sont créés automatiquement au premier démarrage.
+
+### Compte administrateur
+
+Un compte administrateur est **toujours créé automatiquement** au premier démarrage, avec les identifiants définis dans le `.env` :
+
+```env
+ADMIN_EMAIL=admin@company.com
+ADMIN_PASSWORD=Admin1234!
+```
+
+> **En production** : changez ces deux variables avant le premier `docker compose up`.  
+> Si la base est déjà initialisée, modifiez le mot de passe via l'interface Admin ou la page "Mot de passe oublié".
+
 ### Comptes de démonstration
+
+Activés par défaut (`DEMO_ACCOUNTS=true`), à désactiver en production.
 
 | Rôle | Email | Mot de passe |
 |---|---|---|
@@ -71,24 +89,46 @@ L'application est disponible sur **http://localhost:3000**.
 
 ## Variables d'environnement
 
-Voir [env.example](env.example) pour la liste complète. Variables importantes :
+Voir [env.example](env.example) pour la liste complète.
 
 | Variable | Défaut | Description |
 |---|---|---|
+| `ADMIN_EMAIL` | `admin@company.com` | Email du compte admin initial |
+| `ADMIN_PASSWORD` | `Admin1234!` | **Changer en production** |
 | `JWT_SECRET` | `change-me-…` | **Changer en production** |
+| `DEMO_ACCOUNTS` | `true` | `false` en production |
 | `FRONTEND_URL` | `http://localhost:3000` | Utilisé dans les liens des emails |
 | `MINIO_PUBLIC_BASE_URL` | _(vide)_ | URL publique MinIO si derrière un reverse-proxy |
 | `SMTP_FROM` | `ndf@company.com` | Adresse expéditeur des emails |
 
+### Passage en production
+
+Voici le `.env` minimal pour une mise en production :
+
+```env
+DEMO_ACCOUNTS=false
+ADMIN_EMAIL=votre@email.com
+ADMIN_PASSWORD=MotDePasseForte123!
+JWT_SECRET=une-chaine-aleatoire-longue-et-secrete
+FRONTEND_URL=https://ndf.mondomaine.fr
+```
+
+Puis rebuild et démarrage :
+
+```bash
+docker compose build --no-cache backend frontend
+docker compose up -d
+```
+
 ### MinIO public URL
 
-Par défaut, les URLs de prévisualisation des documents pointent vers MinIO en interne (`http://minio:9000`). Si MinIO est exposé via un reverse-proxy ou un CDN, définissez :
+Si MinIO est exposé via un reverse-proxy ou un CDN :
 
 ```env
 MINIO_PUBLIC_BASE_URL=https://ged.mondomaine.fr
 ```
 
-Les URLs présignées seront alors remplacées pour pointer vers le domaine public.
+Les URLs présignées des justificatifs pointeront vers ce domaine public.
 
 ## Workflow d'approbation
 
@@ -102,6 +142,7 @@ Brouillon → [Soumis] → En attente Manager → [Approuvé/Refusé]
 
 - À chaque étape, un email est envoyé au destinataire concerné.
 - En cas de refus, l'employé est notifié avec le motif.
+- La comptabilité peut corriger les montants, la TVA et la date avant validation.
 - L'employé peut supprimer ses brouillons (unitaire ou multi-sélection).
 
 ## Emails de développement
@@ -114,7 +155,7 @@ Les emails sont interceptés par MailHog. Interface web disponible sur **http://
 ndf/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py          # Point d'entrée FastAPI + seed démo
+│   │   ├── main.py          # Point d'entrée FastAPI + création admin + seed démo
 │   │   ├── config.py        # Configuration (pydantic-settings)
 │   │   ├── models/          # Modèles SQLAlchemy
 │   │   ├── routers/         # Endpoints API
@@ -148,6 +189,6 @@ docker compose restart backend
 # Reconstruire le frontend (si Dockerfile modifié)
 docker compose build --no-cache frontend && docker compose up -d frontend
 
-# Réinitialiser la base de données
+# Réinitialiser la base de données (⚠ supprime toutes les données)
 docker compose down -v && docker compose up -d
 ```

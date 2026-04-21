@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+ARG VITE_DEMO_ACCOUNTS=true
 RUN npm run build
 
 FROM nginx:alpine
