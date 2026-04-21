@@ -30,6 +30,8 @@ export const authApi = {
     api.post<{ message: string }>('/auth/forgot-password', { email }),
   resetPassword: (token: string, new_password: string) =>
     api.post<{ message: string }>('/auth/reset-password', { token, new_password }),
+  demoInfo: () =>
+    api.get<{ enabled: boolean; accounts: { role: string; email: string; password: string }[] }>('/auth/demo-info'),
 }
 
 export const usersApi = {

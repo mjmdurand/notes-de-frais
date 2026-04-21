@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
+import { authApi } from '../services/api'
 
 export default function Login() {
   const { login } = useAuth()
@@ -11,6 +12,13 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [demoAccounts, setDemoAccounts] = useState<{ role: string; email: string; password: string }[]>([])
+
+  useEffect(() => {
+    authApi.demoInfo().then((r) => {
+      if (r.data.enabled) setDemoAccounts(r.data.accounts)
+    }).catch(() => {})
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -70,13 +78,12 @@ export default function Login() {
           </div>
         </form>
 
-        {import.meta.env.VITE_DEMO_ACCOUNTS === 'true' && (
+        {demoAccounts.length > 0 && (
           <div className="mt-6 p-4 bg-gray-50 rounded-xl text-xs text-gray-500 space-y-1">
             <p className="font-medium text-gray-600">Comptes de démonstration :</p>
-            <p>Admin : admin@company.com / Admin1234!</p>
-            <p>Manager : manager@company.com / manager</p>
-            <p>Comptabilité : compta@company.com / compta</p>
-            <p>Utilisateur : user1@company.com / user1</p>
+            {demoAccounts.map((a) => (
+              <p key={a.role}>{a.role} : {a.email} / {a.password}</p>
+            ))}
           </div>
         )}
       </div>

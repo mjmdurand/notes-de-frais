@@ -31,6 +31,21 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+@router.get("/demo-info")
+def demo_info():
+    if not settings.demo_accounts:
+        return {"enabled": False, "accounts": []}
+    return {
+        "enabled": True,
+        "accounts": [
+            {"role": "Admin",        "email": settings.admin_email,    "password": settings.admin_password},
+            {"role": "Manager",      "email": "manager@company.com",   "password": "manager"},
+            {"role": "Comptabilité", "email": "compta@company.com",    "password": "compta"},
+            {"role": "Utilisateur",  "email": "user1@company.com",     "password": "user1"},
+        ],
+    }
+
+
 @router.post("/login", response_model=Token)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = authenticate_user(db, data.email, data.password)
