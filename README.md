@@ -8,10 +8,12 @@ Application web de gestion des notes de frais avec workflow d'approbation multi-
 - **Workflow d'approbation** : Employé → Manager → Comptabilité
 - **Upload de justificatifs** (PDF, image) avec stockage MinIO
 - **Saisie manuelle** : montant TTC + taux de TVA → calcul automatique HT/TVA
-- **Correction comptable** : la comptabilité peut corriger les montants et la date pendant la validation
-- **Vue d'ensemble comptabilité** : tableau de bord avec filtres (période, équipe, salarié, statut) et export CSV
-- **Notifications email** à chaque étape du workflow
-- **Réinitialisation de mot de passe** par email
+- **Correction comptable** : la comptabilité peut corriger les montants, la TVA et la date pendant la validation
+- **Vue d'ensemble comptabilité** : tableau de bord avec filtres (période, équipe, salarié, statut), stats et exports
+- **Export CSV** : toutes colonnes HT/TVA/TTC, compatible Excel (BOM UTF-8)
+- **Export logiciel comptable** : format FEC (CEGID Loop) et format Sage 100 Comptabilité
+- **Notifications email** à chaque étape du workflow (templates HTML)
+- **Réinitialisation de mot de passe** par email avec lien sécurisé (TTL 1h)
 - **Rôles** : Utilisateur, Manager, Comptabilité, Admin
 
 ## Stack technique
@@ -57,9 +59,11 @@ Un compte administrateur est **toujours créé automatiquement** au premier dém
 ```env
 ADMIN_EMAIL=admin@company.com
 ADMIN_PASSWORD=Admin1234!
+ADMIN_FIRST_NAME=Admin
+ADMIN_LAST_NAME=Système
 ```
 
-> **En production** : changez ces deux variables avant le premier `docker compose up`.  
+> **En production** : changez ces variables avant le premier `docker compose up`.  
 > Si la base est déjà initialisée, modifiez le mot de passe via l'interface Admin ou la page "Mot de passe oublié".
 
 ### Comptes de démonstration
@@ -73,6 +77,8 @@ Activés par défaut (`DEMO_ACCOUNTS=true`), à désactiver en production.
 | Comptabilité | compta@company.com | compta |
 | Utilisateur 1 | user1@company.com | user1 |
 | Utilisateur 2 | user2@company.com | user2 |
+
+La page de connexion affiche automatiquement les identifiants de démonstration lorsque `DEMO_ACCOUNTS=true`, en les récupérant dynamiquement depuis l'API. Les identifiants affichés reflètent toujours la configuration réelle (y compris un `ADMIN_PASSWORD` personnalisé).
 
 ### Ports exposés
 
@@ -89,21 +95,71 @@ Activés par défaut (`DEMO_ACCOUNTS=true`), à désactiver en production.
 
 ## Variables d'environnement
 
-Voir [env.example](env.example) pour la liste complète.
+Voir [env.example](env.example) pour la liste complète et les exemples SMTP.
+
+### Générales
 
 | Variable | Défaut | Description |
 |---|---|---|
 | `ADMIN_EMAIL` | `admin@company.com` | Email du compte admin initial |
 | `ADMIN_PASSWORD` | `Admin1234!` | **Changer en production** |
+| `ADMIN_FIRST_NAME` | `Admin` | Prénom du compte admin |
+| `ADMIN_LAST_NAME` | `Système` | Nom du compte admin |
 | `JWT_SECRET` | `change-me-…` | **Changer en production** |
 | `DEMO_ACCOUNTS` | `true` | `false` en production |
 | `FRONTEND_URL` | `http://localhost:3000` | Utilisé dans les liens des emails |
 | `MINIO_PUBLIC_BASE_URL` | _(vide)_ | URL publique MinIO si derrière un reverse-proxy |
-| `SMTP_FROM` | `ndf@company.com` | Adresse expéditeur des emails |
+
+### Configuration SMTP
+
+Trois modes sont supportés via la variable `SMTP_MODE`.
+
+#### SMTP non authentifié — relais O365 (connecteur Exchange entrant requis)
+
+```env
+SMTP_MODE=plain
+SMTP_HOST=<domaine>.mail.protection.outlook.com
+SMTP_PORT=25
+SMTP_FROM=ndf@mondomaine.com
+```
+
+#### SMTP authentifié — O365 standard (recommandé)
+
+```env
+SMTP_MODE=starttls
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_FROM=ndf@mondomaine.com
+SMTP_USER=ndf@mondomaine.com
+SMTP_PASSWORD=motdepasse
+```
+
+#### SMTP avec SSL direct
+
+```env
+SMTP_MODE=ssl
+SMTP_HOST=smtp.mondomaine.com
+SMTP_PORT=465
+SMTP_FROM=ndf@mondomaine.com
+SMTP_USER=ndf@mondomaine.com
+SMTP_PASSWORD=motdepasse
+```
+
+#### OAuth2 Microsoft Graph — Exchange Online
+
+Nécessite une app Azure AD avec la permission applicative `Mail.Send` et le consentement administrateur.
+
+```env
+SMTP_MODE=oauth2
+SMTP_FROM=ndf@mondomaine.com
+SMTP_OAUTH_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+SMTP_OAUTH_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+SMTP_OAUTH_CLIENT_SECRET=votre-secret
+```
 
 ### Passage en production
 
-Voici le `.env` minimal pour une mise en production :
+`.env` minimal pour une mise en production :
 
 ```env
 DEMO_ACCOUNTS=false
@@ -111,6 +167,13 @@ ADMIN_EMAIL=votre@email.com
 ADMIN_PASSWORD=MotDePasseForte123!
 JWT_SECRET=une-chaine-aleatoire-longue-et-secrete
 FRONTEND_URL=https://ndf.mondomaine.fr
+
+SMTP_MODE=starttls
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_FROM=ndf@mondomaine.com
+SMTP_USER=ndf@mondomaine.com
+SMTP_PASSWORD=motdepasse
 ```
 
 Puis rebuild et démarrage :
@@ -140,10 +203,41 @@ Brouillon → [Soumis] → En attente Manager → [Approuvé/Refusé]
                                                                    Notification employé
 ```
 
-- À chaque étape, un email est envoyé au destinataire concerné.
+- À chaque étape, un email HTML est envoyé au destinataire concerné.
 - En cas de refus, l'employé est notifié avec le motif.
 - La comptabilité peut corriger les montants, la TVA et la date avant validation.
 - L'employé peut supprimer ses brouillons (unitaire ou multi-sélection).
+
+## Réinitialisation de mot de passe
+
+1. L'utilisateur clique sur "Mot de passe oublié ?" sur la page de connexion.
+2. Un email avec un lien sécurisé (token valable 1h, stocké dans Redis) est envoyé.
+3. Le lien redirige vers `/reset-password?token=…` où l'utilisateur choisit un nouveau mot de passe.
+4. Les liens des emails (workflow + reset) redirigent directement vers la bonne page après connexion.
+
+## Export comptable
+
+Depuis l'écran **Vue d'ensemble** (menu Comptabilité), le bouton **Export logiciel comptable** génère un fichier compatible avec les logiciels de comptabilité, sur la base des notes filtrées à l'écran.
+
+### Format FEC — CEGID Loop
+
+Fichier texte séparé par des tabulations, conforme au format légal Fichier des Écritures Comptables (FEC).
+
+Champs : `JournalCode`, `JournalLib`, `EcritureNum`, `EcritureDate`, `CompteNum`, `CompteLib`, `CompAuxNum`, `CompAuxLib`, `PieceRef`, `PieceDate`, `EcritureLib`, `Debit`, `Credit`, `EcritureLet`, `DateLet`, `ValidDate`, `Montantdevise`, `Idevise`
+
+### Format Sage 100 Comptabilité
+
+Fichier texte séparé par des points-virgules, compatible avec le module d'import de Sage 100.
+
+Champs : `E`, `CodeJournal`, `DateJournal (JJMMAAAA)`, `CompteNum`, `CompteAux`, `NumPiece`, `Libellé`, `Débit`, `Crédit`
+
+### Comptes PCG utilisés
+
+| Compte | Libellé | Sens |
+|---|---|---|
+| 625100 | Frais de déplacement | Débit (HT) |
+| 445660 | TVA déductible sur autres biens | Débit (TVA, si > 0) |
+| 421000 | Rémunérations dues | Crédit (TTC) |
 
 ## Emails de développement
 

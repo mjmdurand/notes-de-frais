@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Download, RotateCcw, Search } from 'lucide-react'
+import { BookOpen, Download, RotateCcw, Search, X } from 'lucide-react'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 import { expensesApi } from '../services/api'
@@ -49,6 +49,111 @@ function exportCsv(reports: ExpenseReportListAll[]) {
   URL.revokeObjectURL(url)
 }
 
+function fmtDate(iso: string | null | undefined, fmt: 'YYYYMMDD' | 'DDMMYYYY'): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return fmt === 'YYYYMMDD' ? `${y}${m}${day}` : `${day}${m}${y}`
+}
+
+function fmtAmount(val: string | null | undefined): string {
+  const n = val ? parseFloat(val) : 0
+  return n.toFixed(2).replace('.', ',')
+}
+
+function exportFec(reports: ExpenseReportListAll[]) {
+  const headers = [
+    'JournalCode', 'JournalLib', 'EcritureNum', 'EcritureDate',
+    'CompteNum', 'CompteLib', 'CompAuxNum', 'CompAuxLib',
+    'PieceRef', 'PieceDate', 'EcritureLib',
+    'Debit', 'Credit', 'EcritureLet', 'DateLet', 'ValidDate', 'Montantdevise', 'Idevise',
+  ]
+  const rows: string[][] = []
+  let seq = 1
+  for (const r of reports) {
+    const date = fmtDate(r.submitted_at ?? r.created_at, 'YYYYMMDD')
+    const pieceDate = fmtDate(r.submitted_at ?? r.created_at, 'YYYYMMDD')
+    const lib = r.title.slice(0, 50).replace(/\t/g, ' ')
+    const empCode = `AUX${r.user.id.slice(0, 8).replace(/-/g, '').toUpperCase()}`
+    const empName = fullName(r.user).slice(0, 50)
+    const ht = parseFloat(r.total_ht ?? '0')
+    const tva = parseFloat(r.total_tva ?? '0')
+    const ttc = parseFloat(r.total_ttc ?? '0')
+    const num = String(seq).padStart(6, '0')
+
+    // 625100 — Frais de déplacement (HT)
+    rows.push([
+      'NDF', 'Notes de frais', num, date,
+      '625100', 'Frais de déplacement', '', '',
+      r.id.slice(0, 8).toUpperCase(), pieceDate, lib,
+      fmtAmount(ht.toFixed(2)), '0,00', '', '', '', '', '',
+    ])
+
+    // 445660 — TVA déductible (TVA, only if > 0)
+    if (tva > 0) {
+      rows.push([
+        'NDF', 'Notes de frais', num, date,
+        '445660', 'TVA déductible sur autres biens', '', '',
+        r.id.slice(0, 8).toUpperCase(), pieceDate, lib,
+        fmtAmount(tva.toFixed(2)), '0,00', '', '', '', '', '',
+      ])
+    }
+
+    // 421000 — Rémunérations dues (TTC, credit)
+    rows.push([
+      'NDF', 'Notes de frais', num, date,
+      '421000', 'Rémunérations dues', empCode, empName,
+      r.id.slice(0, 8).toUpperCase(), pieceDate, lib,
+      '0,00', fmtAmount(ttc.toFixed(2)), '', '', '', '', '',
+    ])
+
+    seq++
+  }
+  const content = [headers, ...rows].map((row) => row.join('\t')).join('\r\n')
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `FEC-NDF-${new Date().toISOString().slice(0, 10)}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportSage100(reports: ExpenseReportListAll[]) {
+  const rows: string[] = []
+  for (const r of reports) {
+    const date = fmtDate(r.submitted_at ?? r.created_at, 'DDMMYYYY')
+    const lib = r.title.slice(0, 69).replace(/;/g, ' ')
+    const pieceNum = r.id.slice(0, 8).toUpperCase()
+    const empCode = `AUX${r.user.id.slice(0, 8).replace(/-/g, '').toUpperCase()}`
+    const ht = parseFloat(r.total_ht ?? '0')
+    const tva = parseFloat(r.total_tva ?? '0')
+    const ttc = parseFloat(r.total_ttc ?? '0')
+
+    // 625100 — HT
+    rows.push(['E', 'NDF', date, '625100', '', pieceNum, lib, fmtAmount(ht.toFixed(2)), '0,00'].join(';'))
+
+    // 445660 — TVA
+    if (tva > 0) {
+      rows.push(['E', 'NDF', date, '445660', '', pieceNum, lib, fmtAmount(tva.toFixed(2)), '0,00'].join(';'))
+    }
+
+    // 421000 — TTC crédit
+    rows.push(['E', 'NDF', date, '421000', empCode, pieceNum, lib, '0,00', fmtAmount(ttc.toFixed(2))].join(';'))
+  }
+  const blob = new Blob([rows.join('\r\n')], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `Sage100-NDF-${new Date().toISOString().slice(0, 10)}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+type AccountingFormat = 'fec' | 'sage100'
+
 export default function AccountingAllReports() {
   const defaultDateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
@@ -57,6 +162,8 @@ export default function AccountingAllReports() {
   const [managerId, setManagerId] = useState('')
   const [userId, setUserId] = useState('')
   const [statusFilter, setStatusFilter] = useState<ReportStatus | ''>('approved')
+  const [showAccountingExport, setShowAccountingExport] = useState(false)
+  const [accountingFormat, setAccountingFormat] = useState<AccountingFormat>('fec')
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['expenses-all'],
@@ -123,14 +230,24 @@ export default function AccountingAllReports() {
             <h1 className="text-2xl font-bold text-gray-900">Vue d'ensemble — Notes de frais</h1>
             <p className="text-gray-500 mt-1">Toutes les notes de frais, tous statuts confondus</p>
           </div>
-          <button
-            onClick={() => exportCsv(filtered)}
-            disabled={filtered.length === 0}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40"
-          >
-            <Download className="w-4 h-4" />
-            Exporter CSV ({filtered.length})
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAccountingExport(true)}
+              disabled={filtered.length === 0}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-40"
+            >
+              <BookOpen className="w-4 h-4" />
+              Export logiciel comptable
+            </button>
+            <button
+              onClick={() => exportCsv(filtered)}
+              disabled={filtered.length === 0}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40"
+            >
+              <Download className="w-4 h-4" />
+              Exporter CSV ({filtered.length})
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -277,6 +394,82 @@ export default function AccountingAllReports() {
           )}
         </div>
       </div>
+
+      {/* Accounting export modal */}
+      {showAccountingExport && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">Export logiciel comptable</h2>
+              <button onClick={() => setShowAccountingExport(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-500">
+                Sélectionnez le format d'export compatible avec votre logiciel comptable.
+                L'export portera sur les <strong>{filtered.length} notes</strong> correspondant aux filtres actifs.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setAccountingFormat('fec')}
+                  className={`flex flex-col gap-1.5 p-4 rounded-xl border-2 text-left transition-colors ${
+                    accountingFormat === 'fec'
+                      ? 'border-blue-600 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="font-semibold text-sm text-gray-900">CEGID Loop</span>
+                  <span className="text-xs text-gray-500">Format FEC (Fichier des Écritures Comptables)</span>
+                  <span className="text-xs text-gray-400 mt-1">Séparateur tabulation · .txt</span>
+                </button>
+
+                <button
+                  onClick={() => setAccountingFormat('sage100')}
+                  className={`flex flex-col gap-1.5 p-4 rounded-xl border-2 text-left transition-colors ${
+                    accountingFormat === 'sage100'
+                      ? 'border-blue-600 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="font-semibold text-sm text-gray-900">Sage 100 Comptabilité</span>
+                  <span className="text-xs text-gray-500">Format import Sage 100</span>
+                  <span className="text-xs text-gray-400 mt-1">Séparateur point-virgule · .txt</span>
+                </button>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+                <p className="font-medium text-gray-600">Comptes PCG utilisés :</p>
+                <p>625100 — Frais de déplacement (montant HT)</p>
+                <p>445660 — TVA déductible sur autres biens (TVA)</p>
+                <p>421000 — Rémunérations dues (montant TTC, crédit)</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 px-6 pb-5">
+              <button
+                onClick={() => setShowAccountingExport(false)}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  if (accountingFormat === 'fec') exportFec(filtered)
+                  else exportSage100(filtered)
+                  setShowAccountingExport(false)
+                }}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              >
+                <Download className="w-4 h-4" />
+                Télécharger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
