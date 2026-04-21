@@ -109,10 +109,14 @@ Voir [env.example](env.example) pour la liste complète et les exemples SMTP.
 | `DEMO_ACCOUNTS` | `true` | `false` en production |
 | `FRONTEND_URL` | `http://localhost:3000` | Utilisé dans les liens des emails |
 | `MINIO_PUBLIC_BASE_URL` | _(vide)_ | URL publique MinIO si derrière un reverse-proxy |
+| `SMTP_FROM` | `ndf@company.com` | Adresse email expéditeur |
+| `SMTP_FROM_NAME` | `Notes de Frais` | Nom d'affichage de l'expéditeur (indépendant du compte d'auth) |
 
 ### Configuration SMTP
 
 Trois modes sont supportés via la variable `SMTP_MODE`.
+
+`SMTP_FROM_NAME` est facultatif mais recommandé : il définit le nom d'affichage de l'expéditeur (ex. `Notes de Frais`), indépendamment du compte d'authentification. Cela permet d'envoyer au nom d'une adresse de service (`no-reply@`, `ndf@`, etc.) tout en s'authentifiant avec n'importe quel compte autorisé.
 
 #### SMTP non authentifié — relais O365 (connecteur Exchange entrant requis)
 
@@ -121,6 +125,7 @@ SMTP_MODE=plain
 SMTP_HOST=<domaine>.mail.protection.outlook.com
 SMTP_PORT=25
 SMTP_FROM=ndf@mondomaine.com
+SMTP_FROM_NAME=Notes de Frais
 ```
 
 #### SMTP authentifié — O365 standard (recommandé)
@@ -129,8 +134,9 @@ SMTP_FROM=ndf@mondomaine.com
 SMTP_MODE=starttls
 SMTP_HOST=smtp.office365.com
 SMTP_PORT=587
-SMTP_FROM=ndf@mondomaine.com
-SMTP_USER=ndf@mondomaine.com
+SMTP_FROM=no-reply@mondomaine.com
+SMTP_FROM_NAME=Notes de Frais
+SMTP_USER=compte-service@mondomaine.com
 SMTP_PASSWORD=motdepasse
 ```
 
@@ -140,8 +146,9 @@ SMTP_PASSWORD=motdepasse
 SMTP_MODE=ssl
 SMTP_HOST=smtp.mondomaine.com
 SMTP_PORT=465
-SMTP_FROM=ndf@mondomaine.com
-SMTP_USER=ndf@mondomaine.com
+SMTP_FROM=no-reply@mondomaine.com
+SMTP_FROM_NAME=Notes de Frais
+SMTP_USER=compte-service@mondomaine.com
 SMTP_PASSWORD=motdepasse
 ```
 
@@ -151,7 +158,8 @@ Nécessite une app Azure AD avec la permission applicative `Mail.Send` et le con
 
 ```env
 SMTP_MODE=oauth2
-SMTP_FROM=ndf@mondomaine.com
+SMTP_FROM=no-reply@mondomaine.com
+SMTP_FROM_NAME=Notes de Frais
 SMTP_OAUTH_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 SMTP_OAUTH_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 SMTP_OAUTH_CLIENT_SECRET=votre-secret
@@ -171,8 +179,9 @@ FRONTEND_URL=https://ndf.mondomaine.fr
 SMTP_MODE=starttls
 SMTP_HOST=smtp.office365.com
 SMTP_PORT=587
-SMTP_FROM=ndf@mondomaine.com
-SMTP_USER=ndf@mondomaine.com
+SMTP_FROM=no-reply@mondomaine.com
+SMTP_FROM_NAME=Notes de Frais
+SMTP_USER=compte-service@mondomaine.com
 SMTP_PASSWORD=motdepasse
 ```
 

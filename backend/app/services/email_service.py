@@ -2,6 +2,7 @@ import smtplib
 import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 
 import httpx
 
@@ -145,10 +146,16 @@ def _report_info_block(report_title: str, user_name: str, extra: str = "") -> st
 
 # ── Transport ─────────────────────────────────────────────────────────────────
 
+def _sender() -> str:
+    if settings.smtp_from_name:
+        return formataddr((settings.smtp_from_name, settings.smtp_from))
+    return settings.smtp_from
+
+
 def _build_message(to: str, subject: str, html_body: str) -> MIMEMultipart:
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = settings.smtp_from
+    msg["From"] = _sender()
     msg["To"] = to
     msg.attach(MIMEText(html_body, "html"))
     return msg
@@ -188,6 +195,9 @@ def _get_oauth2_token() -> str:
 
 def _send_via_graph(to: str, subject: str, html_body: str):
     token = _get_oauth2_token()
+    from_addr: dict = {"address": settings.smtp_from}
+    if settings.smtp_from_name:
+        from_addr["name"] = settings.smtp_from_name
     resp = httpx.post(
         f"https://graph.microsoft.com/v1.0/users/{settings.smtp_from}/sendMail",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
@@ -195,6 +205,7 @@ def _send_via_graph(to: str, subject: str, html_body: str):
             "message": {
                 "subject": subject,
                 "body": {"contentType": "HTML", "content": html_body},
+                "from": {"emailAddress": from_addr},
                 "toRecipients": [{"emailAddress": {"address": to}}],
             },
             "saveToSentItems": False,

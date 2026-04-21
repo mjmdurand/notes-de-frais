@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     smtp_host: str = "smtp.office365.com"
     smtp_port: int = 587
     smtp_from: str = "ndf@company.com"
+    smtp_from_name: Optional[str] = None  # ex: "Notes de Frais"
     # Authentification login/password (mode starttls)
     smtp_user: Optional[str] = None
     smtp_password: Optional[str] = None

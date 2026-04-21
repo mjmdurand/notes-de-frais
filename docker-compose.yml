@@ -67,6 +67,7 @@ services:
       - SMTP_HOST=${SMTP_HOST:-mailhog}
       - SMTP_PORT=${SMTP_PORT:-1025}
       - SMTP_FROM=${SMTP_FROM:-ndf@company.com}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Notes de Frais}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_OAUTH_TENANT_ID=${SMTP_OAUTH_TENANT_ID:-}
@@ -111,6 +112,7 @@ services:
       - SMTP_HOST=${SMTP_HOST:-mailhog}
       - SMTP_PORT=${SMTP_PORT:-1025}
       - SMTP_FROM=${SMTP_FROM:-ndf@company.com}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Notes de Frais}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_OAUTH_TENANT_ID=${SMTP_OAUTH_TENANT_ID:-}
