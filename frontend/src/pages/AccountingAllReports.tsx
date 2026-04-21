@@ -204,13 +204,12 @@ export default function AccountingAllReports() {
 
   const stats = useMemo(() => {
     const total = filtered.length
-    const totalAmount = filtered.reduce((s, r) => s + (r.total_ttc ? parseFloat(r.total_ttc) : 0), 0)
     const approved = filtered.filter((r) => r.status === 'approved')
     const approvedAmount = approved.reduce((s, r) => s + (r.total_ttc ? parseFloat(r.total_ttc) : 0), 0)
     const pending = filtered.filter(
       (r) => r.status === 'pending_manager' || r.status === 'pending_accounting',
     ).length
-    return { total, totalAmount, approvedCount: approved.length, approvedAmount, pending }
+    return { total, approvedCount: approved.length, approvedAmount, pending }
   }, [filtered])
 
   const hasFilters = dateFrom !== defaultDateFrom || dateTo || managerId || userId || statusFilter !== 'approved'
@@ -311,7 +310,7 @@ export default function AccountingAllReports() {
           </div>
           <div className="card">
             <p className="text-sm text-gray-500">Montant total</p>
-            <p className="text-2xl font-bold text-blue-600 mt-1">{stats.totalAmount.toFixed(2)} €</p>
+            <p className="text-2xl font-bold text-blue-600 mt-1">{stats.approvedAmount.toFixed(2)} €</p>
           </div>
           <div className="card">
             <p className="text-sm text-gray-500">Approuvées</p>
