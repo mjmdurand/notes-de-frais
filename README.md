@@ -17,6 +17,7 @@ Application web de gestion des notes de frais avec workflow d'approbation multi-
 - **Gestion des équipes** : création d'équipes, affectation d'un manager responsable, assignation des utilisateurs
 - **Invitation par email** : à la création d'un compte, l'utilisateur reçoit un email avec un lien pour créer son mot de passe (valable 7 jours) — aucun mot de passe saisi par l'admin
 - **Réinitialisation admin** : l'admin peut déclencher un email de réinitialisation de mot de passe pour n'importe quel utilisateur
+- **Désactivation / réactivation** : l'admin peut désactiver ou réactiver un compte (icône dédiée, pas de suppression). Un compte désactivé ne peut plus se connecter et reçoit un message explicite à la tentative de login
 - **Rôles** : Utilisateur, Manager, Comptabilité, Admin
 
 ## Stack technique

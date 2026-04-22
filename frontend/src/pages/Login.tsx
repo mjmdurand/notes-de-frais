@@ -27,8 +27,12 @@ export default function Login() {
     try {
       await login(email, password)
       navigate(searchParams.get('redirect') ?? '/')
-    } catch {
-      setError('Email ou mot de passe incorrect')
+    } catch (e: any) {
+      if (e.response?.status === 403) {
+        setError(e.response.data?.detail ?? 'Votre compte a été désactivé. Contactez votre administrateur.')
+      } else {
+        setError('Email ou mot de passe incorrect')
+      }
     } finally {
       setLoading(false)
     }

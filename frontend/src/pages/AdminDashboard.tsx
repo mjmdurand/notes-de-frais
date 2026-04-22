@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Edit2, KeyRound, Plus, Trash2, X } from 'lucide-react'
+import { Edit2, KeyRound, Plus, UserCheck, UserX, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Layout from '../components/Layout'
 import { teamsApi, usersApi } from '../services/api'
@@ -99,11 +99,12 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleDelete = async (u: User) => {
-    if (!confirm(`Désactiver ${u.first_name} ${u.last_name} ?`)) return
+  const handleToggleActive = async (u: User) => {
+    const action = u.is_active ? 'Désactiver' : 'Réactiver'
+    if (!confirm(`${action} le compte de ${u.first_name} ${u.last_name} ?`)) return
     try {
-      await usersApi.delete(u.id)
-      toast.success('Utilisateur désactivé')
+      await usersApi.update(u.id, { is_active: !u.is_active })
+      toast.success(`Compte ${u.is_active ? 'désactivé' : 'réactivé'}`)
       qc.invalidateQueries({ queryKey: ['admin-users'] })
     } catch {
       toast.error('Erreur')
@@ -243,8 +244,12 @@ export default function AdminDashboard() {
                           <button onClick={() => openEdit(u)} className="p-1 text-gray-400 hover:text-blue-600">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handleDelete(u)} className="p-1 text-gray-400 hover:text-red-600">
-                            <Trash2 className="w-4 h-4" />
+                          <button
+                            onClick={() => handleToggleActive(u)}
+                            title={u.is_active ? 'Désactiver le compte' : 'Réactiver le compte'}
+                            className={`p-1 ${u.is_active ? 'text-gray-400 hover:text-red-600' : 'text-gray-400 hover:text-green-600'}`}
+                          >
+                            {u.is_active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                           </button>
                         </div>
                       </td>
