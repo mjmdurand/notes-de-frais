@@ -28,41 +28,63 @@ def create_initial_data():
 
         if settings.demo_accounts:
             from .models.models import Team
-            demo_users = [
-                ("manager@company.com", "manager", "Jean", "Martin", UserRole.MANAGER),
-                ("compta@company.com", "compta", "Sophie", "Dupont", UserRole.ACCOUNTING),
-                ("user1@company.com", "user1", "Paul", "Bernard", UserRole.USER),
-                ("user2@company.com", "user2", "Marie", "Leroy", UserRole.USER),
+
+            # Utilisateurs de base (login page)
+            base_users = [
+                ("manager@company.com",  "manager", "Jean",    "Martin", UserRole.MANAGER),
+                ("compta@company.com",   "compta",  "Sophie",  "Dupont", UserRole.ACCOUNTING),
+                ("user1@company.com",    "user1",   "Paul",    "Bernard", UserRole.USER),
+                ("user2@company.com",    "user2",   "Marie",   "Leroy",  UserRole.USER),
             ]
-            for email, pwd, fn, ln, role in demo_users:
+            # Comptes supplémentaires pour les équipes démo
+            extra_users = [
+                ("manager.direction@company.com", "dir1",   "Philippe", "Renard",   UserRole.MANAGER),
+                ("user.direction@company.com",    "dir2",   "Christine","Faure",    UserRole.USER),
+                ("manager.info@company.com",      "info1",  "Marc",     "Laurent",  UserRole.MANAGER),
+                ("manager.compta@company.com",    "cpta1",  "Isabelle", "Moreau",   UserRole.MANAGER),
+                ("user.compta@company.com",       "cpta2",  "Thomas",   "Girard",   UserRole.USER),
+                ("manager.recouv@company.com",    "recv1",  "Nathalie", "Blanc",    UserRole.MANAGER),
+                ("user.recouv@company.com",       "recv2",  "Antoine",  "Rousseau", UserRole.USER),
+            ]
+            for email, pwd, fn, ln, role in base_users + extra_users:
                 if not db.query(User).filter(User.email == email).first():
-                    u = User(
+                    db.add(User(
                         email=email,
                         hashed_password=hash_password(pwd),
                         first_name=fn,
                         last_name=ln,
                         role=role,
-                    )
-                    db.add(u)
-                    db.flush()
+                    ))
+            db.flush()
 
-            db.commit()
+            def _u(email):
+                return db.query(User).filter(User.email == email).first()
 
-            manager = db.query(User).filter(User.email == "manager@company.com").first()
-            for email in ["user1@company.com", "user2@company.com"]:
-                u = db.query(User).filter(User.email == email).first()
-                if u and u.manager_id is None:
-                    u.manager_id = manager.id
-
-            # Équipe démo
-            if not db.query(Team).filter(Team.name == "Commercial").first():
-                team = Team(name="Commercial", manager_id=manager.id)
+            # 5 équipes démo avec leur manager et leurs membres
+            teams_def = [
+                ("Direction",    "manager.direction@company.com", ["user.direction@company.com"]),
+                ("Commerciaux",  "manager@company.com",           ["user1@company.com"]),
+                ("Informatique", "manager.info@company.com",      ["user2@company.com"]),
+                # Équipe Comptabilité : rôle USER/MANAGER dans l'équipe ; le rôle ACCOUNTING
+                # (validation des notes) est indépendant et porté par compta@company.com
+                ("Comptabilité", "manager.compta@company.com",    ["user.compta@company.com", "compta@company.com"]),
+                ("Recouvrement", "manager.recouv@company.com",    ["user.recouv@company.com"]),
+            ]
+            for team_name, mgr_email, member_emails in teams_def:
+                if db.query(Team).filter(Team.name == team_name).first():
+                    continue
+                mgr = _u(mgr_email)
+                team = Team(name=team_name, manager_id=mgr.id if mgr else None)
                 db.add(team)
                 db.flush()
-                for email in ["user1@company.com", "user2@company.com"]:
-                    u = db.query(User).filter(User.email == email).first()
+                for email in member_emails:
+                    u = _u(email)
                     if u:
                         u.team_id = team.id
+                        u.manager_id = team.manager_id
+                if mgr:
+                    mgr.team_id = team.id
+
             db.commit()
 
     finally:

@@ -75,13 +75,32 @@ ADMIN_LAST_NAME=Système
 
 Activés par défaut (`DEMO_ACCOUNTS=true`), à désactiver en production.
 
+**Comptes affichés sur la page de connexion :**
+
 | Rôle | Email | Mot de passe |
 |---|---|---|
 | Admin | admin@company.com | Admin1234! |
 | Manager | manager@company.com | manager |
-| Comptabilité | compta@company.com | compta |
-| Utilisateur 1 | user1@company.com | user1 |
-| Utilisateur 2 | user2@company.com | user2 |
+| Comptabilité (validateur) | compta@company.com | compta |
+| Utilisateur | user1@company.com | user1 |
+
+**Équipes et comptes créés automatiquement :**
+
+| Équipe | Rôle | Nom | Email | Mot de passe |
+|---|---|---|---|---|
+| Direction | Manager | Philippe Renard | manager.direction@company.com | dir1 |
+| Direction | Utilisateur | Christine Faure | user.direction@company.com | dir2 |
+| Commerciaux | Manager | Jean Martin | manager@company.com | manager |
+| Commerciaux | Utilisateur | Paul Bernard | user1@company.com | user1 |
+| Informatique | Manager | Marc Laurent | manager.info@company.com | info1 |
+| Informatique | Utilisateur | Marie Leroy | user2@company.com | user2 |
+| Comptabilité | Manager | Isabelle Moreau | manager.compta@company.com | cpta1 |
+| Comptabilité | Utilisateur | Thomas Girard | user.compta@company.com | cpta2 |
+| Comptabilité | Validateur NDF¹ | Sophie Dupont | compta@company.com | compta |
+| Recouvrement | Manager | Nathalie Blanc | manager.recouv@company.com | recv1 |
+| Recouvrement | Utilisateur | Antoine Rousseau | user.recouv@company.com | recv2 |
+
+> ¹ `compta@company.com` a le rôle **Comptabilité** (validation des notes de frais) et est rattachée à l'équipe Comptabilité, mais son rôle de validation est indépendant de son appartenance à l'équipe. Tous les membres de l'équipe Comptabilité peuvent soumettre des notes de frais.
 
 La page de connexion affiche automatiquement les identifiants de démonstration lorsque `DEMO_ACCOUNTS=true`, en les récupérant dynamiquement depuis l'API. Les identifiants affichés reflètent toujours la configuration réelle (y compris un `ADMIN_PASSWORD` personnalisé).
 
@@ -217,7 +236,7 @@ Les équipes sont gérées par l'administrateur via le menu **Équipes** (access
 - La page **Vue d'ensemble** (comptabilité) permet de filtrer les notes par équipe et par manager séparément
 - L'export CSV inclut les colonnes Équipe et Manager
 
-En mode démonstration, une équipe **Commercial** est créée automatiquement avec Jean Martin comme manager et Paul Bernard / Marie Leroy comme membres.
+En mode démonstration, 5 équipes sont créées automatiquement : **Direction**, **Commerciaux**, **Informatique**, **Comptabilité** et **Recouvrement**, chacune avec un manager et au moins un utilisateur. L'équipe Comptabilité regroupe des employés qui soumettent des notes de frais — la permission de validation comptable est un rôle distinct, indépendant de l'équipe.
 
 ## Import CSV d'utilisateurs
 
