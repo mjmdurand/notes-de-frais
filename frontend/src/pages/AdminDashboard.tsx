@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Edit2, KeyRound, Plus, UserCheck, UserX, X } from 'lucide-react'
+import { Edit2, KeyRound, Plus, RotateCcw, Search, UserCheck, UserX, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Layout from '../components/Layout'
 import { teamsApi, usersApi } from '../services/api'
@@ -38,6 +38,12 @@ export default function AdminDashboard() {
   const [editUser, setEditUser] = useState<User | null>(null)
   const [form, setForm] = useState<UserForm>(emptyForm)
 
+  // Filters
+  const [search, setSearch] = useState('')
+  const [filterRole, setFilterRole] = useState<UserRole | ''>('')
+  const [filterTeam, setFilterTeam] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'active' | 'inactive' | ''>('')
+
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => usersApi.list().then((r) => r.data),
@@ -48,40 +54,42 @@ export default function AdminDashboard() {
     queryFn: () => teamsApi.list().then((r) => r.data),
   })
 
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return users.filter((u) => {
+      if (q && !`${u.first_name} ${u.last_name} ${u.email}`.toLowerCase().includes(q)) return false
+      if (filterRole && u.role !== filterRole) return false
+      if (filterTeam && u.team_id !== filterTeam) return false
+      if (filterStatus === 'active' && !u.is_active) return false
+      if (filterStatus === 'inactive' && u.is_active) return false
+      return true
+    })
+  }, [users, search, filterRole, filterTeam, filterStatus])
+
+  const hasFilters = search || filterRole || filterTeam || filterStatus
+  const resetFilters = () => { setSearch(''); setFilterRole(''); setFilterTeam(''); setFilterStatus('') }
+
   const set = (key: keyof UserForm, value: string) => setForm((f) => ({ ...f, [key]: value }))
 
-  const openCreate = () => {
-    setEditUser(null)
-    setForm(emptyForm)
-    setShowForm(true)
-  }
+  const openCreate = () => { setEditUser(null); setForm(emptyForm); setShowForm(true) }
 
   const openEdit = (u: User) => {
     setEditUser(u)
-    setForm({
-      email: u.email,
-      first_name: u.first_name,
-      last_name: u.last_name,
-      role: u.role,
-      team_id: u.team_id ?? '',
-    })
+    setForm({ email: u.email, first_name: u.first_name, last_name: u.last_name, role: u.role, team_id: u.team_id ?? '' })
     setShowForm(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      if (!form.team_id) {
-        toast.error('Veuillez sélectionner une équipe')
-        return
-      }
+      if (!form.team_id) { toast.error('Veuillez sélectionner une équipe'); return }
       const payload = { ...form }
       if (editUser) {
         await usersApi.update(editUser.id, payload)
         toast.success('Utilisateur mis à jour')
       } else {
         await usersApi.create(payload)
-        toast.success('Utilisateur créé — un email d\'invitation a été envoyé')
+        toast.success("Utilisateur créé — un email d'invitation a été envoyé")
       }
       qc.invalidateQueries({ queryKey: ['admin-users'] })
       setShowForm(false)
@@ -95,7 +103,7 @@ export default function AdminDashboard() {
       await usersApi.sendReset(u.id)
       toast.success(`Lien de réinitialisation envoyé à ${u.email}`)
     } catch {
-      toast.error('Erreur lors de l\'envoi')
+      toast.error("Erreur lors de l'envoi")
     }
   }
 
@@ -146,9 +154,7 @@ export default function AdminDashboard() {
                   <label className="label">Équipe *</label>
                   <select className="input" value={form.team_id} onChange={(e) => set('team_id', e.target.value)} required>
                     <option value="">— Sélectionner —</option>
-                    {teams.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
+                    {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
               </div>
@@ -170,8 +176,7 @@ export default function AdminDashboard() {
               )}
               {!editUser && (
                 <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg p-3">
-                  Un email d'invitation sera envoyé à l'utilisateur pour qu'il crée son mot de passe.
-                  Le lien est valable 7 jours.
+                  Un email d'invitation sera envoyé à l'utilisateur pour qu'il crée son mot de passe. Le lien est valable 7 jours.
                 </p>
               )}
               <div className="flex gap-3 pt-2">
@@ -195,10 +200,66 @@ export default function AdminDashboard() {
           </button>
         </div>
 
+        {/* Filters */}
+        <div className="card">
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="relative flex-1 min-w-48">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                className="input pl-9 w-full"
+                placeholder="Nom, prénom, email…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label">Rôle</label>
+              <select className="input w-44" value={filterRole} onChange={(e) => setFilterRole(e.target.value as UserRole | '')}>
+                <option value="">Tous les rôles</option>
+                {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Équipe</label>
+              <select className="input w-44" value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)}>
+                <option value="">Toutes</option>
+                {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Statut</label>
+              <select className="input w-36" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as 'active' | 'inactive' | '')}>
+                <option value="">Tous</option>
+                <option value="active">Actif</option>
+                <option value="inactive">Inactif</option>
+              </select>
+            </div>
+            {hasFilters && (
+              <button
+                onClick={resetFilters}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Réinitialiser
+              </button>
+            )}
+          </div>
+          {hasFilters && (
+            <p className="mt-3 text-xs text-gray-400">
+              {filtered.length} résultat{filtered.length !== 1 ? 's' : ''} sur {users.length} utilisateur{users.length !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+
         <div className="card p-0 overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-10 text-center">
+              <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">Aucun utilisateur ne correspond aux filtres</p>
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -213,7 +274,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {users.map((u) => {
+                {filtered.map((u) => {
                   const team = teams.find((t) => t.id === u.team_id)
                   return (
                     <tr key={u.id} className={`hover:bg-gray-50 ${!u.is_active ? 'opacity-50' : ''}`}>
@@ -234,11 +295,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleSendReset(u)}
-                            title="Envoyer un lien de réinitialisation"
-                            className="p-1 text-gray-400 hover:text-blue-600"
-                          >
+                          <button onClick={() => handleSendReset(u)} title="Envoyer un lien de réinitialisation" className="p-1 text-gray-400 hover:text-blue-600">
                             <KeyRound className="w-4 h-4" />
                           </button>
                           <button onClick={() => openEdit(u)} className="p-1 text-gray-400 hover:text-blue-600">
