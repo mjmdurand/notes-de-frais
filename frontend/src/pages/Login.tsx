@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { FileText } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { AlertCircle, FileText } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { authApi } from '../services/api'
 
@@ -12,6 +11,7 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [demoAccounts, setDemoAccounts] = useState<{ role: string; email: string; password: string }[]>([])
 
   useEffect(() => {
@@ -22,12 +22,13 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     setLoading(true)
     try {
       await login(email, password)
       navigate(searchParams.get('redirect') ?? '/')
     } catch {
-      toast.error('Email ou mot de passe incorrect')
+      setError('Email ou mot de passe incorrect')
     } finally {
       setLoading(false)
     }
@@ -68,6 +69,12 @@ export default function Login() {
               required
             />
           </div>
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          )}
           <button type="submit" className="btn-primary w-full py-2.5" disabled={loading}>
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
