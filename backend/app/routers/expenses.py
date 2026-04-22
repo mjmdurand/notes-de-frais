@@ -203,29 +203,58 @@ def submit_report(report_id: str, db: Session = Depends(get_db), current_user: U
     if not all(item.expense_date for item in report.items):
         raise HTTPException(status_code=400, detail="Toutes les lignes doivent avoir une date de dépense")
 
-    report.status = ReportStatus.PENDING_MANAGER
     report.submitted_at = datetime.utcnow()
-    db.commit()
 
-    manager = db.query(User).filter(User.id == current_user.manager_id).first()
-    if manager:
-        notif = Notification(
-            user_id=manager.id,
-            title="Note de frais en attente",
-            message=f"{current_user.first_name} {current_user.last_name} a soumis une note de frais : {report.title}",
-            type="info",
+    # Managers skip the manager validation step
+    if current_user.role in (UserRole.MANAGER, UserRole.ADMIN):
+        report.status = ReportStatus.PENDING_ACCOUNTING
+        db.add(Approval(
             report_id=report.id,
-        )
-        db.add(notif)
+            approver_id=current_user.id,
+            step="manager",
+            status="approved",
+            reason="Auto-validé (soumis par le manager)",
+        ))
+        db.commit()
+        accountants = db.query(User).filter(User.role == UserRole.ACCOUNTING, User.is_active == True).all()
+        for acc in accountants:
+            db.add(Notification(
+                user_id=acc.id,
+                title="Note de frais à valider",
+                message=f"La note de frais '{report.title}' de {current_user.first_name} {current_user.last_name} est en attente de validation comptable.",
+                type="info",
+                report_id=report.id,
+            ))
         db.commit()
         try:
-            email_service.send_report_submitted(
-                manager.email, manager.first_name,
+            email_service.send_report_approved_by_manager(
+                [a.email for a in accountants],
                 f"{current_user.first_name} {current_user.last_name}",
                 report.title, str(report.id),
             )
         except Exception:
             pass
+    else:
+        report.status = ReportStatus.PENDING_MANAGER
+        db.commit()
+        manager = db.query(User).filter(User.id == current_user.manager_id).first()
+        if manager:
+            db.add(Notification(
+                user_id=manager.id,
+                title="Note de frais en attente",
+                message=f"{current_user.first_name} {current_user.last_name} a soumis une note de frais : {report.title}",
+                type="info",
+                report_id=report.id,
+            ))
+            db.commit()
+            try:
+                email_service.send_report_submitted(
+                    manager.email, manager.first_name,
+                    f"{current_user.first_name} {current_user.last_name}",
+                    report.title, str(report.id),
+                )
+            except Exception:
+                pass
 
     db.refresh(report)
     report.total_ttc = _calc_total(report)
