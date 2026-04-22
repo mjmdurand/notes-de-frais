@@ -1,15 +1,26 @@
+import secrets
 from typing import List
 
+import redis as redis_lib
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..database import get_db
-from ..models.models import User, UserRole
+from ..models.models import Team, User, UserRole
 from ..routers.deps import get_current_user, require_admin
 from ..schemas.schemas import UserCreate, UserOut, UserUpdate
 from ..services.auth_service import hash_password
+from ..services.email_service import send_password_reset, send_welcome
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+WELCOME_TTL = 7 * 24 * 3600  # 7 jours
+RESET_TTL = 3600              # 1 heure
+
+
+def _redis():
+    return redis_lib.Redis.from_url(settings.redis_url, decode_responses=True)
 
 
 @router.get("", response_model=List[UserOut])
@@ -41,18 +52,31 @@ def get_user(user_id: str, db: Session = Depends(get_db), current_user: User = D
 def create_user(data: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email déjà utilisé")
+
+    team = db.query(Team).filter(Team.id == data.team_id).first()
+    if not team:
+        raise HTTPException(status_code=400, detail="Équipe introuvable")
+
     user = User(
         email=data.email,
-        hashed_password=hash_password(data.password),
+        hashed_password=hash_password(secrets.token_urlsafe(32)),  # inutilisable jusqu'au premier set
         first_name=data.first_name,
         last_name=data.last_name,
         role=data.role,
-        manager_id=data.manager_id,
-        team_id=data.team_id,
+        team_id=team.id,
+        manager_id=team.manager_id,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    token = secrets.token_urlsafe(32)
+    _redis().setex(f"ndf:reset:{token}", WELCOME_TTL, str(user.id))
+    try:
+        send_welcome(user.email, user.first_name, token)
+    except Exception:
+        pass
+
     return user
 
 
@@ -67,20 +91,39 @@ def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
-    # Users can only update their own basic info; role changes require admin
     if str(current_user.id) != user_id and current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Accès refusé")
     if data.role is not None and current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Seul l'admin peut changer le rôle")
 
-    for field, value in data.model_dump(exclude_unset=True).items():
-        if field == "password" and value:
-            user.hashed_password = hash_password(value)
+    updated = data.model_dump(exclude_unset=True)
+    for field, value in updated.items():
+        setattr(user, field, value)
+
+    # Sync manager when team changes
+    if "team_id" in updated:
+        if data.team_id:
+            team = db.query(Team).filter(Team.id == data.team_id).first()
+            user.manager_id = team.manager_id if team else None
         else:
-            setattr(user, field, value)
+            user.manager_id = None
+
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/{user_id}/send-reset", status_code=status.HTTP_204_NO_CONTENT)
+def send_user_reset(user_id: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+    token = secrets.token_urlsafe(32)
+    _redis().setex(f"ndf:reset:{token}", RESET_TTL, str(user.id))
+    try:
+        send_password_reset(user.email, user.first_name, token)
+    except Exception:
+        pass
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

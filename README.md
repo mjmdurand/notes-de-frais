@@ -15,6 +15,8 @@ Application web de gestion des notes de frais avec workflow d'approbation multi-
 - **Notifications email** à chaque étape du workflow (templates HTML)
 - **Réinitialisation de mot de passe** par email avec lien sécurisé (TTL 1h)
 - **Gestion des équipes** : création d'équipes, affectation d'un manager responsable, assignation des utilisateurs
+- **Invitation par email** : à la création d'un compte, l'utilisateur reçoit un email avec un lien pour créer son mot de passe (valable 7 jours) — aucun mot de passe saisi par l'admin
+- **Réinitialisation admin** : l'admin peut déclencher un email de réinitialisation de mot de passe pour n'importe quel utilisateur
 - **Rôles** : Utilisateur, Manager, Comptabilité, Admin
 
 ## Stack technique

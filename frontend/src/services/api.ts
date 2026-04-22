@@ -38,8 +38,11 @@ export const usersApi = {
   list: () => api.get<User[]>('/users'),
   listManagers: () => api.get<User[]>('/users/managers'),
   get: (id: string) => api.get<User>(`/users/${id}`),
-  create: (data: Partial<User> & { password: string }) => api.post<User>('/users', data),
-  update: (id: string, data: Partial<User> & { password?: string }) => api.put<User>(`/users/${id}`, data),
+  create: (data: { email: string; first_name: string; last_name: string; role: string; team_id: string }) =>
+    api.post<User>('/users', data),
+  update: (id: string, data: { first_name?: string; last_name?: string; role?: string; team_id?: string; is_active?: boolean }) =>
+    api.put<User>(`/users/${id}`, data),
+  sendReset: (id: string) => api.post(`/users/${id}/send-reset`),
   delete: (id: string) => api.delete(`/users/${id}`),
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Edit2, Plus, Trash2, X } from 'lucide-react'
+import { Edit2, KeyRound, Plus, Trash2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Layout from '../components/Layout'
 import { teamsApi, usersApi } from '../services/api'
@@ -25,13 +25,11 @@ interface UserForm {
   first_name: string
   last_name: string
   role: UserRole
-  manager_id: string
   team_id: string
-  password: string
 }
 
 const emptyForm: UserForm = {
-  email: '', first_name: '', last_name: '', role: 'user', manager_id: '', team_id: '', password: '',
+  email: '', first_name: '', last_name: '', role: 'user', team_id: '',
 }
 
 export default function AdminDashboard() {
@@ -50,8 +48,6 @@ export default function AdminDashboard() {
     queryFn: () => teamsApi.list().then((r) => r.data),
   })
 
-  const managers = users.filter((u) => u.role === 'manager' || u.role === 'admin')
-
   const set = (key: keyof UserForm, value: string) => setForm((f) => ({ ...f, [key]: value }))
 
   const openCreate = () => {
@@ -67,9 +63,7 @@ export default function AdminDashboard() {
       first_name: u.first_name,
       last_name: u.last_name,
       role: u.role,
-      manager_id: u.manager_id ?? '',
       team_id: u.team_id ?? '',
-      password: '',
     })
     setShowForm(true)
   }
@@ -77,22 +71,31 @@ export default function AdminDashboard() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const payload = {
-        ...form,
-        manager_id: form.manager_id || undefined,
-        team_id: form.team_id || undefined,
+      if (!form.team_id) {
+        toast.error('Veuillez sélectionner une équipe')
+        return
       }
+      const payload = { ...form }
       if (editUser) {
         await usersApi.update(editUser.id, payload)
         toast.success('Utilisateur mis à jour')
       } else {
-        await usersApi.create(payload as any)
-        toast.success('Utilisateur créé')
+        await usersApi.create(payload)
+        toast.success('Utilisateur créé — un email d\'invitation a été envoyé')
       }
       qc.invalidateQueries({ queryKey: ['admin-users'] })
       setShowForm(false)
     } catch (e: any) {
       toast.error(e.response?.data?.detail ?? 'Erreur')
+    }
+  }
+
+  const handleSendReset = async (u: User) => {
+    try {
+      await usersApi.sendReset(u.id)
+      toast.success(`Lien de réinitialisation envoyé à ${u.email}`)
+    } catch {
+      toast.error('Erreur lors de l\'envoi')
     }
   }
 
@@ -119,21 +122,17 @@ export default function AdminDashboard() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Prénom</label>
+                  <label className="label">Prénom *</label>
                   <input className="input" value={form.first_name} onChange={(e) => set('first_name', e.target.value)} required />
                 </div>
                 <div>
-                  <label className="label">Nom</label>
+                  <label className="label">Nom *</label>
                   <input className="input" value={form.last_name} onChange={(e) => set('last_name', e.target.value)} required />
                 </div>
               </div>
               <div>
-                <label className="label">Email</label>
-                <input className="input" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required />
-              </div>
-              <div>
-                <label className="label">{editUser ? 'Nouveau mot de passe (laisser vide pour ne pas changer)' : 'Mot de passe'}</label>
-                <input className="input" type="password" value={form.password} onChange={(e) => set('password', e.target.value)} required={!editUser} />
+                <label className="label">Email *</label>
+                <input className="input" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required disabled={!!editUser} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -143,27 +142,40 @@ export default function AdminDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="label">Manager</label>
-                  <select className="input" value={form.manager_id} onChange={(e) => set('manager_id', e.target.value)}>
-                    <option value="">— Aucun —</option>
-                    {managers.map((m) => (
-                      <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
+                  <label className="label">Équipe *</label>
+                  <select className="input" value={form.team_id} onChange={(e) => set('team_id', e.target.value)} required>
+                    <option value="">— Sélectionner —</option>
+                    {teams.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="label">Équipe</label>
-                <select className="input" value={form.team_id} onChange={(e) => set('team_id', e.target.value)}>
-                  <option value="">— Aucune —</option>
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
+              {editUser && (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Mot de passe</p>
+                    <p className="text-xs text-gray-500">Envoyer un lien de réinitialisation à l'utilisateur</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { handleSendReset(editUser); setShowForm(false) }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    Envoyer le lien
+                  </button>
+                </div>
+              )}
+              {!editUser && (
+                <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                  Un email d'invitation sera envoyé à l'utilisateur pour qu'il crée son mot de passe.
+                  Le lien est valable 7 jours.
+                </p>
+              )}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="btn-secondary flex-1">Annuler</button>
-                <button type="submit" className="btn-primary flex-1">{editUser ? 'Enregistrer' : 'Créer'}</button>
+                <button type="submit" className="btn-primary flex-1">{editUser ? 'Enregistrer' : 'Créer et inviter'}</button>
               </div>
             </form>
           </div>
@@ -195,14 +207,12 @@ export default function AdminDashboard() {
                   <th className="px-4 py-3 text-left">Email</th>
                   <th className="px-4 py-3 text-left">Rôle</th>
                   <th className="px-4 py-3 text-left">Équipe</th>
-                  <th className="px-4 py-3 text-left">Manager</th>
                   <th className="px-4 py-3 text-center">Statut</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {users.map((u) => {
-                  const mgr = managers.find((m) => m.id === u.manager_id)
                   const team = teams.find((t) => t.id === u.team_id)
                   return (
                     <tr key={u.id} className={`hover:bg-gray-50 ${!u.is_active ? 'opacity-50' : ''}`}>
@@ -216,9 +226,6 @@ export default function AdminDashboard() {
                       <td className="px-4 py-3 text-gray-500">
                         {team ? team.name : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-gray-500">
-                        {mgr ? `${mgr.first_name} ${mgr.last_name}` : '—'}
-                      </td>
                       <td className="px-4 py-3 text-center">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                           {u.is_active ? 'Actif' : 'Inactif'}
@@ -226,6 +233,13 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleSendReset(u)}
+                            title="Envoyer un lien de réinitialisation"
+                            className="p-1 text-gray-400 hover:text-blue-600"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </button>
                           <button onClick={() => openEdit(u)} className="p-1 text-gray-400 hover:text-blue-600">
                             <Edit2 className="w-4 h-4" />
                           </button>

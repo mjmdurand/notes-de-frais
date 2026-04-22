@@ -316,6 +316,24 @@ def send_report_rejected(user_email: str, user_name: str, report_title: str,
     )
 
 
+def send_welcome(user_email: str, user_name: str, token: str):
+    url = f"{settings.frontend_url}/reset-password?token={token}"
+    body = f"""
+    <p>Bonjour <strong>{user_name}</strong>,</p>
+    <p>Un compte a été créé pour vous sur l'application <strong>Notes de Frais</strong>.</p>
+    <p>Cliquez sur le bouton ci-dessous pour choisir votre mot de passe et accéder à votre espace.
+       Ce lien est valable <strong>7 jours</strong>.</p>
+    <p style="margin-top:24px;padding:14px 18px;background:#f8fafc;border-radius:8px;
+              font-size:13px;color:#64748b;border:1px solid #e2e8f0;">
+      Si vous n'attendiez pas ce message, vous pouvez l'ignorer en toute sécurité.
+    </p>"""
+    send_email(
+        to=user_email,
+        subject="[NDF] Bienvenue — Créez votre mot de passe",
+        html_body=_template("Bienvenue sur Notes de Frais", body, url, "Créer mon mot de passe"),
+    )
+
+
 def send_password_reset(user_email: str, user_name: str, token: str):
     reset_url = f"{settings.frontend_url}/reset-password?token={token}"
     body = f"""
