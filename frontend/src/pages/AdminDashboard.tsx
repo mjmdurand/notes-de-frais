@@ -141,7 +141,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="label">Email *</label>
-                <input className="input" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required disabled={!!editUser} />
+                <input className="input" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

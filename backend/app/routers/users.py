@@ -97,6 +97,12 @@ def update_user(
         raise HTTPException(status_code=403, detail="Seul l'admin peut changer le rôle")
 
     updated = data.model_dump(exclude_unset=True)
+
+    if "email" in updated and updated["email"] != user.email:
+        existing = db.query(User).filter(User.email == updated["email"]).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Cette adresse email est déjà utilisée")
+
     for field, value in updated.items():
         setattr(user, field, value)
 
