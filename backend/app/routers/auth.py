@@ -10,7 +10,10 @@ from ..database import get_db
 from ..models.models import User
 from ..routers.deps import get_current_user
 from ..schemas.schemas import LoginRequest, Token, UserOut
-from ..services.auth_service import authenticate_user, create_access_token, hash_password, verify_password
+from ..services.auth_service import (
+    authenticate_user, create_access_token, hash_password,
+    is_password_reused, push_password_history, validate_password_strength, verify_password,
+)
 from ..services.email_service import send_password_reset
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -78,8 +81,7 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
 @router.post("/reset-password")
 def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
-    if len(data.new_password) < 6:
-        raise HTTPException(status_code=400, detail="Le mot de passe doit contenir au moins 6 caractères")
+    validate_password_strength(data.new_password)
     r = _redis()
     user_id = r.get(f"ndf:reset:{data.token}")
     if not user_id:
@@ -87,6 +89,11 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=400, detail="Utilisateur introuvable")
+    if verify_password(data.new_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Ce mot de passe a déjà été utilisé. Choisissez-en un nouveau.")
+    if is_password_reused(db, str(user.id), data.new_password):
+        raise HTTPException(status_code=400, detail="Ce mot de passe a déjà été utilisé. Choisissez-en un nouveau.")
+    push_password_history(db, str(user.id), user.hashed_password)
     user.hashed_password = hash_password(data.new_password)
     db.commit()
     r.delete(f"ndf:reset:{data.token}")

@@ -241,6 +241,20 @@ Brouillon → [Soumis] → En attente Manager → [Approuvé/Refusé]
 3. Le lien redirige vers `/reset-password?token=…` où l'utilisateur choisit un nouveau mot de passe.
 4. Les liens des emails (workflow + reset) redirigent directement vers la bonne page après connexion.
 
+### Politique de mot de passe
+
+Tout nouveau mot de passe (réinitialisation ou création de compte) doit respecter les règles suivantes :
+
+- 8 caractères minimum
+- Au moins une majuscule (A-Z)
+- Au moins une minuscule (a-z)
+- Au moins un chiffre (0-9)
+- Au moins un caractère spécial
+
+La page de réinitialisation affiche une barre de force en temps réel et une liste de critères avec indicateurs ✓/✗. La soumission est bloquée tant que tous les critères ne sont pas satisfaits.
+
+De plus, les 5 derniers mots de passe utilisés sont mémorisés : il est impossible de réutiliser un mot de passe récent.
+
 ## Export comptable
 
 Depuis l'écran **Vue d'ensemble** (menu Comptabilité), le bouton **Export logiciel comptable** génère un fichier compatible avec les logiciels de comptabilité, sur la base des notes filtrées à l'écran.
