@@ -45,6 +45,13 @@ export const usersApi = {
     api.put<User>(`/users/${id}`, data),
   sendReset: (id: string) => api.post(`/users/${id}/send-reset`),
   delete: (id: string) => api.delete(`/users/${id}`),
+  importCsv: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post<{ created: { ligne: number; email: string; nom: string }[]; skipped: { ligne: number; email: string; raison: string }[]; errors: { ligne: number; email: string; raison: string }[] }>('/users/import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
 }
 
 export const expensesApi = {

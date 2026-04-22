@@ -1,8 +1,10 @@
+import csv
+import io
 import secrets
 from typing import List
 
 import redis as redis_lib
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -130,6 +132,87 @@ def send_user_reset(user_id: str, db: Session = Depends(get_db), _: User = Depen
         send_password_reset(user.email, user.first_name, token)
     except Exception:
         pass
+
+
+_ROLE_MAP = {
+    "user": UserRole.USER,
+    "utilisateur": UserRole.USER,
+    "manager": UserRole.MANAGER,
+    "accounting": UserRole.ACCOUNTING,
+    "comptabilite": UserRole.ACCOUNTING,
+    "comptabilité": UserRole.ACCOUNTING,
+    "compta": UserRole.ACCOUNTING,
+    "admin": UserRole.ADMIN,
+    "administrateur": UserRole.ADMIN,
+}
+
+
+@router.post("/import")
+def import_users(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    content = file.file.read().decode("utf-8-sig")  # utf-8-sig strips Excel BOM
+    reader = csv.DictReader(io.StringIO(content))
+
+    created, skipped, errors = [], [], []
+    r = _redis()
+
+    for i, row in enumerate(reader, start=2):  # row 1 = header
+        prenom = (row.get("prenom") or row.get("prénom") or "").strip()
+        nom = (row.get("nom") or "").strip()
+        email = (row.get("email") or "").strip().lower()
+        role_raw = (row.get("role") or "user").strip().lower()
+        equipe_name = (row.get("equipe") or row.get("équipe") or "").strip()
+
+        if not prenom or not nom or not email:
+            errors.append({"ligne": i, "raison": "Prénom, nom et email sont obligatoires", "email": email or "?"})
+            continue
+
+        if not equipe_name:
+            errors.append({"ligne": i, "raison": "Équipe obligatoire", "email": email})
+            continue
+
+        role = _ROLE_MAP.get(role_raw)
+        if role is None:
+            errors.append({"ligne": i, "raison": f"Rôle inconnu : '{role_raw}'", "email": email})
+            continue
+
+        if db.query(User).filter(User.email == email).first():
+            skipped.append({"ligne": i, "email": email, "raison": "Email déjà existant"})
+            continue
+
+        # Find or create team
+        team = db.query(Team).filter(Team.name.ilike(equipe_name)).first()
+        if not team:
+            team = Team(name=equipe_name)
+            db.add(team)
+            db.flush()
+
+        user = User(
+            email=email,
+            hashed_password=hash_password(secrets.token_urlsafe(32)),
+            first_name=prenom,
+            last_name=nom,
+            role=role,
+            team_id=team.id,
+            manager_id=team.manager_id,
+        )
+        db.add(user)
+        db.flush()
+
+        token = secrets.token_urlsafe(32)
+        r.setex(f"ndf:reset:{token}", WELCOME_TTL, str(user.id))
+        try:
+            send_welcome(email, prenom, token)
+        except Exception:
+            pass
+
+        created.append({"ligne": i, "email": email, "nom": f"{prenom} {nom}"})
+
+    db.commit()
+    return {"created": created, "skipped": skipped, "errors": errors}
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

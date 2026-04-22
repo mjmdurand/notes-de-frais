@@ -1,10 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useRef, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Edit2, KeyRound, Plus, RotateCcw, Search, UserCheck, UserX, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Edit2, KeyRound, Plus, RotateCcw, Search, Upload, UserCheck, UserX, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Layout from '../components/Layout'
 import { teamsApi, usersApi } from '../services/api'
 import type { User, UserRole } from '../types'
+
+interface ImportResult {
+  created: { ligne: number; email: string; nom: string }[]
+  skipped: { ligne: number; email: string; raison: string }[]
+  errors: { ligne: number; email: string; raison: string }[]
+}
 
 const ROLES: { value: UserRole; label: string }[] = [
   { value: 'user', label: 'Utilisateur' },
@@ -37,6 +43,9 @@ export default function AdminDashboard() {
   const [showForm, setShowForm] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
   const [form, setForm] = useState<UserForm>(emptyForm)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -107,6 +116,23 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setImporting(true)
+    try {
+      const res = await usersApi.importCsv(file)
+      setImportResult(res.data)
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      qc.invalidateQueries({ queryKey: ['admin-teams'] })
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail ?? "Erreur lors de l'import")
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const handleToggleActive = async (u: User) => {
     const action = u.is_active ? 'Désactiver' : 'Réactiver'
     if (!confirm(`${action} le compte de ${u.first_name} ${u.last_name} ?`)) return
@@ -121,6 +147,77 @@ export default function AdminDashboard() {
 
   return (
     <Layout>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={handleImport}
+      />
+
+      {importResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-lg font-semibold">Résultat de l'import</h2>
+              <button onClick={() => setImportResult(null)}><X className="w-5 h-5" /></button>
+            </div>
+            <div className="overflow-y-auto p-6 space-y-4">
+              <div className="flex gap-4 text-center">
+                <div className="flex-1 bg-green-50 rounded-xl p-3">
+                  <p className="text-2xl font-bold text-green-600">{importResult.created.length}</p>
+                  <p className="text-xs text-green-700 mt-0.5">Créé{importResult.created.length > 1 ? 's' : ''}</p>
+                </div>
+                <div className="flex-1 bg-yellow-50 rounded-xl p-3">
+                  <p className="text-2xl font-bold text-yellow-600">{importResult.skipped.length}</p>
+                  <p className="text-xs text-yellow-700 mt-0.5">Ignoré{importResult.skipped.length > 1 ? 's' : ''}</p>
+                </div>
+                <div className="flex-1 bg-red-50 rounded-xl p-3">
+                  <p className="text-2xl font-bold text-red-600">{importResult.errors.length}</p>
+                  <p className="text-xs text-red-700 mt-0.5">Erreur{importResult.errors.length > 1 ? 's' : ''}</p>
+                </div>
+              </div>
+
+              {importResult.created.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Créés</p>
+                  <ul className="text-sm space-y-0.5">
+                    {importResult.created.map((r) => (
+                      <li key={r.email} className="text-gray-700">{r.nom} — <span className="text-gray-500">{r.email}</span></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {importResult.skipped.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-1">Ignorés</p>
+                  <ul className="text-sm space-y-0.5">
+                    {importResult.skipped.map((r) => (
+                      <li key={r.email} className="text-gray-500">{r.email} — {r.raison}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {importResult.errors.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" /> Erreurs</p>
+                  <ul className="text-sm space-y-0.5">
+                    {importResult.errors.map((r, i) => (
+                      <li key={i} className="text-red-600">Ligne {r.ligne} — {r.raison}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t">
+              <button onClick={() => setImportResult(null)} className="btn-primary w-full">Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
@@ -194,10 +291,20 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold">Administration</h1>
             <p className="text-gray-500 mt-1">Gestion des utilisateurs</p>
           </div>
-          <button onClick={openCreate} className="btn-primary flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Créer un utilisateur
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              {importing ? 'Import…' : 'Importer CSV'}
+            </button>
+            <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Créer un utilisateur
+            </button>
+          </div>
         </div>
 
         {/* Filters */}

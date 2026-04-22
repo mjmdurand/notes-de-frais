@@ -219,6 +219,35 @@ Les équipes sont gérées par l'administrateur via le menu **Équipes** (access
 
 En mode démonstration, une équipe **Commercial** est créée automatiquement avec Jean Martin comme manager et Paul Bernard / Marie Leroy comme membres.
 
+## Import CSV d'utilisateurs
+
+Depuis la page **Utilisateurs**, le bouton **Importer CSV** permet de créer des utilisateurs en masse.
+
+### Format du fichier
+
+```csv
+prenom,nom,email,role,equipe
+Jean,Dupont,jean.dupont@company.com,user,Commercial
+Marie,Martin,marie.martin@company.com,manager,Tech
+Alice,Durand,alice.durand@company.com,comptabilite,Finance
+```
+
+| Colonne | Obligatoire | Valeurs acceptées |
+|---|---|---|
+| `prenom` | Oui | Texte libre |
+| `nom` | Oui | Texte libre |
+| `email` | Oui | Adresse email valide |
+| `role` | Non (défaut : `user`) | `user` / `utilisateur`, `manager`, `comptabilite` / `accounting`, `admin` |
+| `equipe` | Oui | Nom de l'équipe (créée automatiquement si inexistante) |
+
+### Comportement
+
+- Les équipes sont créées automatiquement si elles n'existent pas encore
+- Un email d'invitation est envoyé à chaque nouvel utilisateur (lien valable 7 jours)
+- Les emails déjà existants sont ignorés sans erreur
+- Un rapport de résultat s'affiche après l'import : créés / ignorés / erreurs ligne par ligne
+- Compatible avec les exports Excel (BOM UTF-8 géré automatiquement)
+
 ## Workflow d'approbation
 
 ```
